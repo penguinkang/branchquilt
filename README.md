@@ -64,7 +64,7 @@ For private GitHub repositories, supply `GH_TOKEN` or `GITHUB_TOKEN` through you
 
 ## Explore the map
 
-Click a box to explore folders, files, classes and functions. Use **Details** for the inspector. **Size** switches between child counts and bytes; **Linear / Log** adjusts the scale. Leaves count as one child-sized unit. Hover a box to see its full name. Move the pointer near the top or bottom edge to reveal controls. **Reviews** highlights PR scope, **Activity** shows history, and **Search** filters files and contributors.
+Click a box to subdivide it in place into folders, files, classes and functions. Use **Open →** for the inspector. **Size** switches between child counts and bytes; **Linear / Log** adjusts the scale. Leaves count as one child-sized unit. Hover anywhere on a box to see its full name. Move the pointer near the top or bottom edge to reveal controls. **Reviews** highlights PR scope, **Activity** shows history, and **Search** filters files and contributors.
 
 Analysis uses committed snapshots; uncommitted changes are excluded. PR coverage is file-level. Reports can contain private repository metadata, so review them before sharing.
 

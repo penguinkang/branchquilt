@@ -14,12 +14,21 @@ let sizeMode:'children'|'bytes'='children',sizeScale:'linear'|'log'='linear';
 ($('#size-scale') as HTMLSelectElement).onchange=e=>{sizeScale=(e.target as HTMLSelectElement).value as typeof sizeScale;render();};
 const tooltip=$('#object-tooltip');
 function hoverName(target:HTMLElement,name:string){
- const accessible=target.querySelector('.tile-select')??target;
- const show=()=>{tooltip.textContent=name;tooltip.hidden=false;accessible.setAttribute('aria-describedby','object-tooltip');const r=target.getBoundingClientRect();tooltip.style.left=Math.max(8,Math.min(r.left,innerWidth-tooltip.offsetWidth-8))+'px';tooltip.style.top=Math.max(8,Math.min(r.top+30,innerHeight-tooltip.offsetHeight-8))+'px';};
- const hide=()=>{tooltip.hidden=true;accessible.removeAttribute('aria-describedby');};
- target.onmouseenter=show;target.onmouseleave=hide;target.addEventListener('focusin',show);target.addEventListener('focusout',hide);
+ target.title=name;
+ const show=()=>{tooltip.textContent=name;tooltip.hidden=false;target.setAttribute('aria-describedby','object-tooltip');const r=target.getBoundingClientRect();tooltip.style.left=Math.max(8,Math.min(r.left,innerWidth-tooltip.offsetWidth-8))+'px';tooltip.style.top=Math.max(8,Math.min(r.bottom+6,innerHeight-tooltip.offsetHeight-8))+'px';};
+ const hide=()=>{tooltip.hidden=true;target.removeAttribute('aria-describedby');};
+ target.addEventListener('mouseenter',show);target.addEventListener('mouseleave',hide);target.addEventListener('focus',show);target.addEventListener('blur',hide);
 }
-function enterScope(path:string){scope=path;inspectorOpen=false;$('#inspector').hidden=true;render();$('#breadcrumbs button:last-child')?.focus();}
+function visualTree(files:Entry[],symbolFiles=files):Tree{
+ const root=tree(files),byPath=new Map(symbolFiles.filter(file=>file.symbols?.length).map(file=>[file.path,file]));
+ const attach=(node:Tree)=>{if(node.children)for(const child of node.children)attach(child);else{const file=byPath.get(node.path);if(file?.symbols?.length)node.children=symbolTree(file).children;}};
+ attach(root);return root;
+}
+function chainTo(root:Tree,path:string):Tree[]{
+ const visit=(node:Tree,parents:Tree[]):Tree[]|undefined=>node.path===path?[...parents,node]:node.children?.map(child=>visit(child,[...parents,node])).find(Boolean);
+ return path?(visit(root,[])??[root]):[root];
+}
+function enterScope(path:string){scope=path;inspectorOpen=false;$('#inspector').hidden=true;render();document.querySelector<HTMLElement>(`[data-path="${CSS.escape(path)}"] .tile-select`)?.focus();}
 
 const contributorSelect=$('#contributor') as HTMLSelectElement;
 const people=new Map<string,string>();
@@ -86,58 +95,63 @@ function inspectFile(path:string,index:number){
   const related=(data.github?.pullRequests??[]).filter(pr=>pr.files.some(f=>f.path===path||f.path.startsWith(path+'/')||f.oldPath===path));if(related.length)facts.push(['Related PRs (file-level)',related.map(pr=>`#${pr.number} ${pr.title}`).join(' · ')]);
   inspect(`file:${index}:${path}`,f?.path.split('/').at(-1)??path??'Repository',facts);
 }
-function inScope(path:string){return !scope||path.startsWith(scope+'/');}
+function inScope(path:string){const base=scope.split('#')[0];return !base||path===base||path.startsWith(base+'/');}
 function render(){
   tooltip.hidden=true;
   renderReviews();
   const a=data.snapshots[current],b=compare>=0?data.snapshots[compare]:undefined;
   const files=b?unionFiles(a.files,b.files):a.files;
-  const full=tree(files);let node=full;const symbolFile=a.files.find(f=>(f.path===scope||scope.startsWith(f.path+'#'))&&f.symbols?.length);if(symbolFile&&!b){node=symbolTree(symbolFile);if(scope.includes('#')){const findSymbol=(n:Tree):Tree|undefined=>n.path===scope?n:n.children?.map(findSymbol).find(Boolean);node=findSymbol(node)??node;}}
-  if(scope&&!symbolFile){const find=(n:Tree):Tree|undefined=>n.path===scope?n:n.children?.map(find).find(Boolean);node=find(full)??full;}
+  const full=visualTree(files,[...a.files,...(b?.files??[])]),chain=chainTo(full,scope),active=new Set(chain.map(node=>node.path));
+  const symbolFile=!b?a.files.find(file=>(file.path===scope||scope.startsWith(file.path+'#'))&&file.symbols?.length):undefined;
+  const parent=new Map<string,string>();const indexTree=(node:Tree)=>{for(const child of node.children??[]){parent.set(child.path,node.path);indexTree(child);}};indexTree(full);
   $('#breadcrumbs').replaceChildren(button('Repository',()=>{scope='';render();}));
-  scope.split('#')[0].split('/').filter(Boolean).forEach((part,i,all)=>$('#breadcrumbs').append(button(part,()=>{scope=all.slice(0,i+1).join('/');render();})));
-  if(symbolFile&&scope.includes('#')){const id=scope.split('#')[1];let symbol=symbolFile.symbols?.find(s=>s.id===id);const ancestors:typeof symbol[]=[];while(symbol){ancestors.unshift(symbol);symbol=symbolFile.symbols?.find(s=>s.id===symbol!.parentId);}for(const item of ancestors)if(item)$('#breadcrumbs').append(button(item.name,()=>enterScope(symbolFile.path+'#'+item.id)));}
+  for(const node of chain.slice(1))$('#breadcrumbs').append(button(node.name,()=>enterScope(node.path)));
   $('#map-title').textContent=b?'Compare branch snapshots':'Explore the shared branch';
-  $('#map-description').textContent=b?'Aligned slots use shared child counts or maximum bytes. Opening a source file switches to that pane’s branch for symbol exploration.':'Click a box to explore its contents; Details opens its inspector.';
+  $('#map-description').textContent=b?'Aligned slots use shared child counts or maximum bytes. Expanding a source file switches to that pane’s branch for symbol exploration.':'Click a box to subdivide it in place; Open → shows its inspector.';
   const sizing=`Area = ${sizeScale==='log'?'log(1 + value)':'linear'} ${sizeMode==='children'?'immediate children (leaves count as 1)':'bytes'}`;
   $('#legend').textContent=sizing+' · '+(b?'aligned comparison slots · ':'')+`${colorMode==='ownership'?'current-line blame':'commit activity'} · gray = mixed or unknown`;
   if(contributor)$('#legend').textContent+=' · '+people.get(contributor);
   const panes=$('#panes');panes.replaceChildren();panes.classList.toggle('paired',!!b);
-  const layoutNode:Tree={...node,children:(node.children??[]).map(c=>({...c,children:undefined}))};
-  const originals=new Map((node.children??[]).map(c=>[c.path,c]));
   const weight=(c:Tree)=>Math.max(boxWeight(c,a.files,sizeMode,sizeScale),b?boxWeight(c,b.files,sizeMode,sizeScale):0);
-  const rects=treemap<Tree>().tile(treemapSquarify).size([900,500]).paddingInner((node.children?.length??0)>100?1:6)(hierarchy<Tree>(layoutNode).sum(d=>d===layoutNode?0:weight(originals.get(d.path)!)).sort((a,b)=>b.value!-a.value!));
-  const all=(rects.children??[]).map(rect=>({child:originals.get(rect.data.path)!,rect}));
-  const immediate=all.filter(({rect})=>rect&&rect.x1-rect.x0>=2&&rect.y1-rect.y0>=2).slice(0,500);
-  const omitted=all.filter(({child})=>weight(child)>0).length-immediate.length;
+  type Region={child:Tree;x0:number;y0:number;x1:number;y1:number;depth:number;expanded:boolean};
+  const all:Region[]=[];let omitted=0;
+  const layout=(node:Tree,x0:number,y0:number,x1:number,y1:number,depth:number)=>{
+    const children=node.children??[];if(!children.length)return;
+    const shallow:Tree={...node,children:children.map(child=>({...child,children:undefined}))};
+    const originals=new Map(children.map(child=>[child.path,child]));
+    const root=treemap<Tree>().tile(treemapSquarify).size([x1-x0,y1-y0]).paddingInner(children.length>100?1:5)(hierarchy(shallow).sum(d=>d===shallow?0:weight(originals.get(d.path)!)).sort((a,b)=>b.value!-a.value!));
+    for(const rect of root.children??[]){const child=originals.get(rect.data.path)!;const region={child,x0:x0+rect.x0,y0:y0+rect.y0,x1:x0+rect.x1,y1:y0+rect.y1,depth,expanded:active.has(child.path)&&!!child.children?.length};
+      if(region.x1-region.x0<2||region.y1-region.y0<2||all.length>=500){if(weight(child)>0)omitted++;continue;}all.push(region);
+      if(region.expanded){const inset=3,header=Math.min(30,Math.max(18,(region.y1-region.y0)*.18));layout(child,region.x0+inset,region.y0+header,region.x1-inset,region.y1-inset,depth+1);}
+    }
+  };layout(full,0,0,900,500,1);
   if(omitted>0)$('#map-description').textContent+=` ${omitted} small or excess regions omitted; use Files or search to inspect all paths.`;
   for(const index of b?[current,compare]:[current]){
     const s=data.snapshots[index],section=el('section','','pane');
     section.append(button(`${s.ref}  ·  ${s.oid.slice(0,8)}`,()=>inspect(`branch:${index}`,s.ref,[['Tip',s.oid],['Files',String(s.files.length)],['History','Commits reachable at build time; not branch creation history.']])));
     const map=el('div','','map');map.setAttribute('aria-label',`${s.ref} repository map`);
-    for(const {child,rect} of immediate){
-      if(!rect||rect.x1===rect.x0||rect.y1===rect.y0)continue;
+    for(const region of all){const {child}=region;
       const filePath=child.path.split('#')[0];const paths=s.files.filter(f=>f.path===filePath||f.path.startsWith(filePath+'/'));
       const symbolId=child.path.split('#')[1];
       const owners=symbolId?paths.flatMap(f=>f.symbols?.find(s=>s.id===symbolId)?.owners??[]):paths.flatMap(f=>f.owners??[]);
       const authors=colorMode==='ownership'?[...new Map(owners.map(o=>[o.id,o.name])).entries()]:symbolId?[]:[...new Map(s.commits.filter(c=>!c.merge&&c.paths.some(p=>p===filePath||p.startsWith(filePath+'/'))).map(c=>[c.authorId,c.author])).entries()];
-      const box=el('div','','tile');box.style.left=`${rect.x0/9}%`;box.style.top=`${rect.y0/5}%`;box.style.width=`${(rect.x1-rect.x0)/9}%`;box.style.height=`${(rect.y1-rect.y0)/5}%`;
+      const box=el('div','','tile');box.style.left=`${region.x0/9}%`;box.style.top=`${region.y0/5}%`;box.style.width=`${(region.x1-region.x0)/9}%`;box.style.height=`${(region.y1-region.y0)/5}%`;box.style.zIndex=String(region.depth);box.classList.toggle('expanded',region.expanded);
       box.style.background=contributor&&authors.some(a=>a[0]===contributor)?color(contributor):authors.length===1?color(authors[0][0]):'#dce3df';
       const touching=(data.github?.pullRequests??[]).filter(pr=>pr.files.some(f=>f.path===filePath||f.path.startsWith(filePath+'/')||f.oldPath===filePath));
       const chosen=touching.filter(pr=>selectedPRs.has(pr.number));
       if(selectedPRs.size){if(chosen.length&&!symbolId){box.style.outline=`3px solid ${chosen.length===1?color(chosen[0].authorId):'#42594a'}`;box.style.outlineOffset='-3px';}else box.classList.add('dim');}
       if(touching.length&&!symbolId)box.append(el('small',`${touching.length} PR${touching.length>1?'s':''} · file-level`));
       if(!paths.length)box.classList.add('absent');if((query&&!child.path.toLowerCase().includes(query))||(contributor&&!authors.some(a=>a[0]===contributor)))box.classList.add('dim');
-      const canEnter=!!child.children?.length||(!symbolId&&paths.length===1&&!!paths[0].symbols?.length);
-      const select=button(`${child.name}${child.children&&!symbolId?'/':''}`,()=>{if(canEnter){if(b&&!child.children){current=index;branch.value=String(index);compare=-1;other.value='-1';}enterScope(child.path);}else inspectFile(child.path,index);});select.className='tile-select';box.append(select);
+      const canEnter=!!child.children?.length,isFileNode=files.some(file=>file.path===child.path);
+      const select=button(`${child.name}${child.children&&!symbolId&&!isFileNode?'/':''}`,()=>{if(canEnter){if(b&&!child.path.includes('#')&&paths.length===1&&paths[0].symbols?.length){current=index;branch.value=String(index);compare=-1;other.value='-1';}enterScope(region.expanded?(parent.get(child.path)??''):child.path);}else inspectFile(child.path,index);});select.className='tile-select';box.append(select);
       let fullName=child.path;
       if(symbolId){const symbols=paths[0]?.symbols??[];let symbol=symbols.find(s=>s.id===symbolId);const names:string[]=[];while(symbol){names.unshift(symbol.name);symbol=symbols.find(s=>s.id===symbol!.parentId);}fullName=filePath+' → '+(names.join(' → ')||child.name);}
-      hoverName(box,fullName);select.setAttribute('aria-description',fullName);
+      hoverName(box,fullName);select.title=fullName;select.setAttribute('aria-description',fullName);
       box.dataset.path=child.path;box.dataset.weight=String(weight(child));
       box.append(el('small',paths.length?bytes(child.path.includes('#')?child.bytes:paths.reduce((n,f)=>n+f.bytes,0)):'Absent'));
       if(authors.length>1)box.append(el('small',`${authors.length} contributors`));
       if(b&&!child.children)box.append(el('small',change(a.files.find(f=>f.path===child.path),b.files.find(f=>f.path===child.path))));
-      if(canEnter){const details=button('Details',()=>inspectFile(child.path,index));details.className='open';details.setAttribute('aria-label',`Details: ${child.name}`);box.append(details);}
+      const details=button('Open →',()=>inspectFile(child.path,index));details.className='open';details.setAttribute('aria-label',`Open details: ${child.name}`);box.append(details);
       map.append(box);
     }
     if(omitted>0)map.append(el('p',`${omitted} small or excess regions omitted · use Files / search for all paths`,'sr-only map-limit'));

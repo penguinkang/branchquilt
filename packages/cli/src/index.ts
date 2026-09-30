@@ -5,7 +5,7 @@ import {configSchema} from '../../schema/src/index.js';
 import {repositoryRoot,text} from '../../git/src/index.js';
 import {safeOutput} from '../../generator/src/index.js';
 import {runJob} from '../../runner/src/index.js';
-const cli=new Command().name('branchquilt').version('0.4.0-alpha.3').description('Offline branch maps · Phase 4 scheduled refresh alpha');
+const cli=new Command().name('branchquilt').version('0.4.0-alpha.4').description('Offline branch maps · Phase 4 scheduled refresh alpha');
 for(const command of ['build','refresh'])cli.command(command).argument('[path]','existing Git repository','.').option('--branch <ref>','snapshot ref (repeatable)',(v:string,a:string[])=>[...a,v],[]).option('--output <directory>','output directory inside target repo').option('--config <path>','JSON config file').option('--github <mode>','off, auto, or required').option('--github-repo <owner/repo>','GitHub repository').option('--max-prs <count>','PR cap, 1–100').option('--pr-state <state>','open, closed, all').option('--reviewer <login>','reviewer to prioritize').option('--history-days <days>','history window in days').option('--max-commits <count>','history cap per snapshot').option('--ownership <mode>','blame or off').option('--no-cache','disable analysis cache').option('--timeout <seconds>','analysis/enrichment deadline, 1–3600 seconds').option('--recover-lock','recover a verified dead local process lock').option('--json','machine-readable final result').action(async (path,opts)=>{
  const root=repositoryRoot(resolve(path));
  const configPath=opts.config?resolve(root,opts.config):resolve(root,'branchquilt.config.json');

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0-alpha.4
+
+- Expanding a directory, file, class or function now subdivides that box in place, preserving the surrounding repository context.
+- **Open →** remains a separate inspector action on every box.
+- Full object names appear when hovering anywhere on a box, with a native title fallback.
+
 ## 0.4.0-alpha.3
 
 - Click boxes to drill into directories, files and nested declarations; Details retains the inspector. Opening a source file from a paired map switches to that pane’s branch.
