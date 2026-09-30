@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0-alpha.5
+
+- Move treemap area and Linear/Log controls into a persistent lower-right overlay so scaling is always discoverable.
+
 ## 0.4.0-alpha.4
 
 - Expanding a directory, file, class or function now subdivides that box in place, preserving the surrounding repository context.

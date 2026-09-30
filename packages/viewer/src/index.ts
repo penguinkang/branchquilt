@@ -11,7 +11,8 @@ const color=(id:string)=>`hsl(${parseInt(id.slice(0,8),16)%360} 28% 72%)`;
 let contributor='',colorMode='activity';
 let sizeMode:'children'|'bytes'='children',sizeScale:'linear'|'log'='linear';
 ($('#size-mode') as HTMLSelectElement).onchange=e=>{sizeMode=(e.target as HTMLSelectElement).value as typeof sizeMode;render();};
-($('#size-scale') as HTMLSelectElement).onchange=e=>{sizeScale=(e.target as HTMLSelectElement).value as typeof sizeScale;render();};
+$('#size-linear').onclick=()=>{sizeScale='linear';render();};
+$('#size-log').onclick=()=>{sizeScale='log';render();};
 const tooltip=$('#object-tooltip');
 function hoverName(target:HTMLElement,name:string){
  target.title=name;
@@ -98,6 +99,7 @@ function inspectFile(path:string,index:number){
 function inScope(path:string){const base=scope.split('#')[0];return !base||path===base||path.startsWith(base+'/');}
 function render(){
   tooltip.hidden=true;
+  $('#size-linear').setAttribute('aria-pressed',String(sizeScale==='linear'));$('#size-log').setAttribute('aria-pressed',String(sizeScale==='log'));
   renderReviews();
   const a=data.snapshots[current],b=compare>=0?data.snapshots[compare]:undefined;
   const files=b?unionFiles(a.files,b.files):a.files;

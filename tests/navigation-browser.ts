@@ -14,7 +14,7 @@ try{
  await page.getByRole('button',{name:'login',exact:true}).click();assert(await page.getByRole('button',{name:'normalize',exact:true}).isVisible());
  await page.getByRole('button',{name:'Open details: login',exact:true}).click();assert((await page.locator('#details').textContent())!.includes('UTF-8 span'));await page.getByRole('button',{name:'Close details'}).click();
  const linear=await page.locator('.tile').evaluateAll(es=>es.map(e=>Number((e as HTMLElement).dataset.weight)));
- await page.locator('#size-scale').selectOption('log');const log=await page.locator('.tile').evaluateAll(es=>es.map(e=>Number((e as HTMLElement).dataset.weight)));assert.notDeepEqual(log,linear);
+ await page.getByRole('button',{name:'Log',exact:true}).click();const log=await page.locator('.tile').evaluateAll(es=>es.map(e=>Number((e as HTMLElement).dataset.weight)));assert.notDeepEqual(log,linear);assert.equal(await page.getByRole('button',{name:'Log',exact:true}).getAttribute('aria-pressed'),'true');
  await page.locator('#size-mode').selectOption('bytes');assert((await page.locator('#legend').innerText()).includes('log(1 + value) bytes'));
  await page.locator('#breadcrumbs').getByRole('button',{name:'Repository',exact:true}).click();await page.locator('#compare').selectOption('1');
  await page.locator('.pane').first().getByRole('button',{name:'src/',exact:true}).click();assert.equal(await page.locator('.pane').count(),2);await page.locator('.pane').first().getByRole('button',{name:'auth.ts',exact:true}).click();assert.equal(await page.locator('.pane').count(),1);assert(await page.getByRole('button',{name:'Session',exact:true}).isVisible());
