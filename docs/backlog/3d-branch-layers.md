@@ -46,4 +46,3 @@ Keep the normalized analysis schema renderer-independent. Derive a comparison sc
 | B03 | Camera/layer controls, accessible list, metadata panel, reduced motion, and state-preserving fallback work without requiring pointer-only interaction. |
 | B04 | 3D-enabled single-file and Pages artifacts work offline/as hosted; unavailable or lost WebGL context causes no loss of access to the code map. |
 | B05 | Recorded two/five-layer benchmarks meet the agreed targets or an explicitly documented lower-detail mode meets them; artifact overhead and tested GPU coverage are published. |
-

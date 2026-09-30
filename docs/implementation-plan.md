@@ -1,8 +1,8 @@
 # BranchQuilt — Implementation Plan and Codex Project Prompt
 
-**Status:** Active specification; Phase 2 local symbols/ownership alpha implemented, full v1 pending  
-**Deliverable:** A pnpm-installable CLI that generates a static, interactive shared-branch contribution and review workspace  
-**Working package/bin name:** `branchquilt` (provisional; preliminary checks found no exact npm/GitHub-name match; recheck before publishing)  
+**Status:** Active specification; Phase 4 alpha implemented, full v1 pending
+**Deliverable:** A pnpm-installable CLI that generates a static, interactive shared-branch contribution and review workspace
+**Working package/bin name:** `branchquilt` (provisional; preliminary checks found no exact npm/GitHub-name match; recheck before publishing)
 **Document date:** September 29, 2026
 
 ## 1. Instructions to the implementing Codex agent
