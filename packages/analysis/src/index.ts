@@ -32,3 +32,9 @@ export function symbolTree(file:Entry):Tree {
  const fill=(n:Tree)=>{const childBytes=n.children!.reduce((sum,c)=>sum+c.bytes,0);if(n.children!.length){for(const c of n.children!)fill(c);if(n.bytes>childBytes)n.children!.push({name:'Other code',path:n.path+'#residual',bytes:n.bytes-childBytes});}else delete n.children;};
  fill(root);return root;
 }
+
+export function boxWeight(node:Tree,files:Entry[],mode:'children'|'bytes',scale:'linear'|'log'):number {
+ const count=node.children?node.children.filter(c=>!c.path.endsWith('#residual')).length:(files.find(f=>f.path===node.path)?.symbols??[]).filter(s=>!s.parentId).length;
+ const value=mode==='bytes'?node.bytes:Math.max(1,count);
+ return scale==='log'?Math.log1p(value):value;
+}

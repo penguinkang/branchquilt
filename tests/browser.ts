@@ -14,10 +14,10 @@ try{
  await page.goto(pathToFileURL(join(root,'branchquilt/index.html')).href);
  assert(await page.locator('#files-panel').isHidden());assert(await page.locator('#activity-panel').isHidden());
  assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight));
- await page.getByRole('button',{name:'src/',exact:true}).click();await page.waitForSelector('#inspector:not([hidden])');
+ await page.getByRole('button',{name:'Details: src',exact:true}).click();await page.waitForSelector('#inspector:not([hidden])');
  assert((await page.locator('#details').textContent())!.includes('directory'));
- await page.getByRole('button',{name:'src/',exact:true}).click();assert(await page.locator('#inspector').isHidden());
- await page.getByRole('button',{name:'Open →',exact:true}).click();assert((await page.locator('#breadcrumbs').textContent())!.includes('src'));
+ await page.getByRole('button',{name:'Details: src',exact:true}).click();assert(await page.locator('#inspector').isHidden());
+ await page.getByRole('button',{name:'src/',exact:true}).click();assert((await page.locator('#breadcrumbs').textContent())!.includes('src'));
  await page.locator('#compare').selectOption('1');assert.equal(await page.locator('.pane').count(),2);
  await page.getByRole('button',{name:'Search /'}).click();await page.locator('#search').fill('review');await page.locator('#file-list button').click();assert((await page.locator('#details').textContent())!.includes('absent'));
  await page.locator('#branch').selectOption('1');await page.locator('#search').fill('');
@@ -25,8 +25,8 @@ try{
  await page.keyboard.press('Escape');assert(await page.locator('#inspector').isHidden());
  assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
  await page.keyboard.press('Escape');
- await page.getByRole('button',{name:'Open →',exact:true}).click();
- await page.locator('.tile').filter({has:page.getByRole('button',{name:'auth.ts',exact:true})}).getByRole('button',{name:'Open →'}).click();
+ await page.getByRole('button',{name:'src/',exact:true}).click();
+ await page.getByRole('button',{name:'auth.ts',exact:true}).first().click();
  await page.getByRole('button',{name:'login',exact:true}).first().click();
  assert((await page.locator('#details').textContent())!.includes('UTF-8'));
  await page.keyboard.press('Escape');

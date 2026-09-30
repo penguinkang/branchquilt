@@ -16,7 +16,7 @@ try{
  assert(loadMs<10000,'10k-file initial load exceeded 10s budget');assert(await page.locator('.tile').count()>0&&await page.locator('.tile').count()<=500);assert((await page.locator('#freshness').textContent())?.includes('Stale report'));
  await page.mouse.move(700,450);await page.waitForFunction(()=>getComputedStyle(document.querySelector('.topbar')!).opacity==='0');
  await page.keyboard.press('Tab');assert.equal(await page.locator('.topbar').evaluate(e=>getComputedStyle(e).opacity),'1');
- const searchStart=performance.now();for(let i=0;i<3;i++)await page.keyboard.press('Tab');await page.keyboard.press('Enter');await page.locator('#search').fill('file-00000.txt');await page.getByRole('button',{name:'file-00000.txt',exact:true}).click();const searchMs=Math.round(performance.now()-searchStart);
+ const searchStart=performance.now();for(let i=0;i<5;i++)await page.keyboard.press('Tab');await page.keyboard.press('Enter');await page.locator('#search').fill('file-00000.txt');await page.locator('#file-list').getByRole('button',{name:'file-00000.txt',exact:true}).click();const searchMs=Math.round(performance.now()-searchStart);
  assert(searchMs<5000,'10k-file search exceeded 5s budget');assert((await page.locator('#details').innerText()).includes('file-00000.txt'));
  await page.keyboard.press('Escape');assert(await page.locator('#inspector').isHidden());await page.keyboard.press('Escape');
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight));

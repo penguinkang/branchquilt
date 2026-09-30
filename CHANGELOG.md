@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0-alpha.3
+
+- Click boxes to drill into directories, files and nested declarations; Details retains the inspector. Opening a source file from a paired map switches to that pane’s branch.
+- Default child-count sizing, optional byte sizing, and linear/log scales. Counts use immediate children or top-level declarations; leaves count as one, and residual code is excluded from declaration counts.
+- Full-name hover/focus tooltips and nested declaration breadcrumbs.
+
 ## 0.4.0-alpha.2
 
 Documentation update: concise npm/pnpm and Git quick starts, common commands and map interactions. No functional changes.

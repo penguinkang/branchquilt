@@ -1,5 +1,5 @@
 import { hierarchy,treemap,treemapSquarify } from 'd3-hierarchy';
-import { tree,unionFiles,change,symbolTree } from '../../analysis/src/index.js';
+import { tree,unionFiles,change,symbolTree,boxWeight } from '../../analysis/src/index.js';
 import type {Atlas,Entry,Tree,PullRequest} from '../../schema/src/index.js';
 const data:Atlas=JSON.parse(document.querySelector('#atlas-data')!.textContent!);
 const $=(s:string)=>document.querySelector(s) as HTMLElement;
@@ -9,6 +9,18 @@ const bytes=(n:number)=>n>=1024?`${(n/1024).toFixed(1)} KiB`:`${n} B`;
 let current=0,compare=-1,scope='',query='',selected='',inspectorOpen=false,trigger:HTMLElement|null=null;
 const color=(id:string)=>`hsl(${parseInt(id.slice(0,8),16)%360} 28% 72%)`;
 let contributor='',colorMode='activity';
+let sizeMode:'children'|'bytes'='children',sizeScale:'linear'|'log'='linear';
+($('#size-mode') as HTMLSelectElement).onchange=e=>{sizeMode=(e.target as HTMLSelectElement).value as typeof sizeMode;render();};
+($('#size-scale') as HTMLSelectElement).onchange=e=>{sizeScale=(e.target as HTMLSelectElement).value as typeof sizeScale;render();};
+const tooltip=$('#object-tooltip');
+function hoverName(target:HTMLElement,name:string){
+ const accessible=target.querySelector('.tile-select')??target;
+ const show=()=>{tooltip.textContent=name;tooltip.hidden=false;accessible.setAttribute('aria-describedby','object-tooltip');const r=target.getBoundingClientRect();tooltip.style.left=Math.max(8,Math.min(r.left,innerWidth-tooltip.offsetWidth-8))+'px';tooltip.style.top=Math.max(8,Math.min(r.top+30,innerHeight-tooltip.offsetHeight-8))+'px';};
+ const hide=()=>{tooltip.hidden=true;accessible.removeAttribute('aria-describedby');};
+ target.onmouseenter=show;target.onmouseleave=hide;target.addEventListener('focusin',show);target.addEventListener('focusout',hide);
+}
+function enterScope(path:string){scope=path;inspectorOpen=false;$('#inspector').hidden=true;render();$('#breadcrumbs button:last-child')?.focus();}
+
 const contributorSelect=$('#contributor') as HTMLSelectElement;
 const people=new Map<string,string>();
 for(const s of data.snapshots){for(const c of s.commits)people.set(c.authorId,c.author);for(const f of s.files)for(const o of f.owners??[])people.set(o.id,o.name);}
@@ -44,7 +56,7 @@ function togglePanel(name:string,force?:boolean){
 }
 for(const name of panels)$(`#toggle-${name}`).onclick=()=>togglePanel(name);
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
+  if(e.key==='Escape'){tooltip.hidden=true;
     if(inspectorOpen){closeInspector();return;}
     const active=panels.find(name=>!$(`#${name}-panel`).hidden);
     for(const name of panels){$(`#${name}-panel`).hidden=true;$(`#toggle-${name}`).setAttribute('aria-expanded','false');}
@@ -76,6 +88,7 @@ function inspectFile(path:string,index:number){
 }
 function inScope(path:string){return !scope||path.startsWith(scope+'/');}
 function render(){
+  tooltip.hidden=true;
   renderReviews();
   const a=data.snapshots[current],b=compare>=0?data.snapshots[compare]:undefined;
   const files=b?unionFiles(a.files,b.files):a.files;
@@ -83,16 +96,20 @@ function render(){
   if(scope&&!symbolFile){const find=(n:Tree):Tree|undefined=>n.path===scope?n:n.children?.map(find).find(Boolean);node=find(full)??full;}
   $('#breadcrumbs').replaceChildren(button('Repository',()=>{scope='';render();}));
   scope.split('#')[0].split('/').filter(Boolean).forEach((part,i,all)=>$('#breadcrumbs').append(button(part,()=>{scope=all.slice(0,i+1).join('/');render();})));
+  if(symbolFile&&scope.includes('#')){const id=scope.split('#')[1];let symbol=symbolFile.symbols?.find(s=>s.id===id);const ancestors:typeof symbol[]=[];while(symbol){ancestors.unshift(symbol);symbol=symbolFile.symbols?.find(s=>s.id===symbol!.parentId);}for(const item of ancestors)if(item)$('#breadcrumbs').append(button(item.name,()=>enterScope(symbolFile.path+'#'+item.id)));}
   $('#map-title').textContent=b?'Compare branch snapshots':'Explore the shared branch';
-  $('#map-description').textContent=b?'Aligned slots use maximum bytes across both snapshots. Inspect a slot for actual size and delta.':'Area represents committed bytes. Select a region for details; use Open to explore folders.';
-  $('#legend').textContent=b?'Dashed = absent · badge = A → B change · area = comparison capacity':`Area = bytes · ${colorMode==='ownership'?'current-line blame':'commit activity (file-level)'} · gray = mixed or unknown · ${contributor?people.get(contributor):'all contributors'}`;
+  $('#map-description').textContent=b?'Aligned slots use shared child counts or maximum bytes. Opening a source file switches to that pane’s branch for symbol exploration.':'Click a box to explore its contents; Details opens its inspector.';
+  const sizing=`Area = ${sizeScale==='log'?'log(1 + value)':'linear'} ${sizeMode==='children'?'immediate children (leaves count as 1)':'bytes'}`;
+  $('#legend').textContent=sizing+' · '+(b?'aligned comparison slots · ':'')+`${colorMode==='ownership'?'current-line blame':'commit activity'} · gray = mixed or unknown`;
+  if(contributor)$('#legend').textContent+=' · '+people.get(contributor);
   const panes=$('#panes');panes.replaceChildren();panes.classList.toggle('paired',!!b);
-  const rects=treemap<Tree>().tile(treemapSquarify).size([900,500]).paddingInner((node.children?.length??0)>100?1:6)(hierarchy(node).sum(d=>d.children?0:d.bytes).sort((a,b)=>b.value!-a.value!));
-  // Render one hierarchy level to bound DOM and preserve direct navigation.
-  const byNode=new Map(rects.descendants().map(r=>[r.data,r]));
-  const all=(node.children??[]).map(child=>({child,rect:byNode.get(child)!})).sort((a,b)=>b.child.bytes-a.child.bytes);
+  const layoutNode:Tree={...node,children:(node.children??[]).map(c=>({...c,children:undefined}))};
+  const originals=new Map((node.children??[]).map(c=>[c.path,c]));
+  const weight=(c:Tree)=>Math.max(boxWeight(c,a.files,sizeMode,sizeScale),b?boxWeight(c,b.files,sizeMode,sizeScale):0);
+  const rects=treemap<Tree>().tile(treemapSquarify).size([900,500]).paddingInner((node.children?.length??0)>100?1:6)(hierarchy<Tree>(layoutNode).sum(d=>d===layoutNode?0:weight(originals.get(d.path)!)).sort((a,b)=>b.value!-a.value!));
+  const all=(rects.children??[]).map(rect=>({child:originals.get(rect.data.path)!,rect}));
   const immediate=all.filter(({rect})=>rect&&rect.x1-rect.x0>=2&&rect.y1-rect.y0>=2).slice(0,500);
-  const omitted=all.filter(({child})=>child.bytes>0).length-immediate.length;
+  const omitted=all.filter(({child})=>weight(child)>0).length-immediate.length;
   if(omitted>0)$('#map-description').textContent+=` ${omitted} small or excess regions omitted; use Files or search to inspect all paths.`;
   for(const index of b?[current,compare]:[current]){
     const s=data.snapshots[index],section=el('section','','pane');
@@ -111,15 +128,20 @@ function render(){
       if(selectedPRs.size){if(chosen.length&&!symbolId){box.style.outline=`3px solid ${chosen.length===1?color(chosen[0].authorId):'#42594a'}`;box.style.outlineOffset='-3px';}else box.classList.add('dim');}
       if(touching.length&&!symbolId)box.append(el('small',`${touching.length} PR${touching.length>1?'s':''} · file-level`));
       if(!paths.length)box.classList.add('absent');if((query&&!child.path.toLowerCase().includes(query))||(contributor&&!authors.some(a=>a[0]===contributor)))box.classList.add('dim');
-      const select=button(`${child.name}${child.children?'/':''}`,()=>inspectFile(child.path,index));select.className='tile-select';box.append(select);
+      const canEnter=!!child.children?.length||(!symbolId&&paths.length===1&&!!paths[0].symbols?.length);
+      const select=button(`${child.name}${child.children&&!symbolId?'/':''}`,()=>{if(canEnter){if(b&&!child.children){current=index;branch.value=String(index);compare=-1;other.value='-1';}enterScope(child.path);}else inspectFile(child.path,index);});select.className='tile-select';box.append(select);
+      let fullName=child.path;
+      if(symbolId){const symbols=paths[0]?.symbols??[];let symbol=symbols.find(s=>s.id===symbolId);const names:string[]=[];while(symbol){names.unshift(symbol.name);symbol=symbols.find(s=>s.id===symbol!.parentId);}fullName=filePath+' → '+(names.join(' → ')||child.name);}
+      hoverName(box,fullName);select.setAttribute('aria-description',fullName);
+      box.dataset.path=child.path;box.dataset.weight=String(weight(child));
       box.append(el('small',paths.length?bytes(child.path.includes('#')?child.bytes:paths.reduce((n,f)=>n+f.bytes,0)):'Absent'));
       if(authors.length>1)box.append(el('small',`${authors.length} contributors`));
       if(b&&!child.children)box.append(el('small',change(a.files.find(f=>f.path===child.path),b.files.find(f=>f.path===child.path))));
-      if((child.children&&!child.path.endsWith('#residual'))||(!b&&paths.length===1&&paths[0].symbols?.length&&!child.path.includes('#'))){const open=button('Open →',()=>{scope=child.path;render();});open.className='open';box.append(open);}
+      if(canEnter){const details=button('Details',()=>inspectFile(child.path,index));details.className='open';details.setAttribute('aria-label',`Details: ${child.name}`);box.append(details);}
       map.append(box);
     }
     if(omitted>0)map.append(el('p',`${omitted} small or excess regions omitted · use Files / search for all paths`,'sr-only map-limit'));
-    if(!node.bytes)map.append(el('p','No nonzero file sizes here. Use the file list below.','empty'));
+    if(!all.some(({child})=>weight(child)>0))map.append(el('p','No nonzero file sizes here. Use the file list below.','empty'));
     section.append(map);panes.append(section);
   }
   const list=$('#file-list');list.replaceChildren();

@@ -1,6 +1,6 @@
 {
   "name": "branchquilt",
-  "version": "0.4.0-alpha.2",
+  "version": "0.4.0-alpha.3",
   "description": "Offline branch contribution maps for team code review",
   "type": "module",
   "bin": {
@@ -32,11 +32,12 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:browser": "tsx tests/browser.ts",
-    "check": "pnpm typecheck && pnpm build && pnpm test && pnpm test:browser && pnpm test:reviews && pnpm test:scale",
+    "check": "pnpm typecheck && pnpm build && pnpm test && pnpm test:browser && pnpm test:reviews && pnpm test:scale && pnpm test:navigation",
     "demo": "tsx scripts/demo.ts",
     "test:package": "pnpm pack --pack-destination work && tsx tests/package-smoke.ts && tsx tests/workflow-smoke.ts",
     "test:reviews": "pnpm demo && tsx tests/reviews-browser.ts",
-    "test:scale": "tsx tests/scale-browser.ts"
+    "test:scale": "tsx tests/scale-browser.ts",
+    "test:navigation": "pnpm demo && tsx tests/navigation-browser.ts"
   },
   "dependencies": {
     "commander": "15.0.0",
