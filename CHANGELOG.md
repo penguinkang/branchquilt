@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0-alpha.2
+
+Documentation update: concise npm/pnpm and Git quick starts, common commands and map interactions. No functional changes.
+
 ## 0.4.0-alpha.1
 
 First public alpha, combining four implementation phases:

@@ -1,65 +1,73 @@
 # BranchQuilt
 
-An offline code map for teams sharing branches: inspect committed files, compare snapshots, and explore recent contributions in a portable HTML document.
+See who changed what across Git branches and pull requests—in an interactive, offline HTML map.
 
-**Phase 4 alpha is implemented.** Refresh jobs now have isolated workers, deadlines, safe publication, conservative lock recovery, conditional GitHub caching and freshness indicators. Read-only PR review overlays and local syntax/blame analysis remain available. See [automation setup](docs/automation.md), [GitHub usage](docs/github.md), [phase status](docs/phase-status.md), and the [complete implementation plan](docs/implementation-plan.md). 3D remains [parked](docs/backlog/3d-branch-layers.md).
+**Requires:** Node.js 22.12+ and Git. BranchQuilt is currently an alpha.
 
-## Install the alpha
+## Run from npm
+
+Inside the Git repository you want to visualize:
 
 ```sh
-pnpm add -D branchquilt@alpha
-pnpm exec branchquilt build .
-# Or run without adding a dependency:
-pnpm dlx branchquilt@alpha build /path/to/repository
+npx branchquilt@alpha build .
 ```
 
-The first release is `0.4.0-alpha.1`. The `alpha` tag is intentional: this is a preview, not a stable release. Read the [known limits](docs/phase-4-delivery.md) before unattended use. Downloadable packages are also available from [GitHub Releases](https://github.com/penguinkang/branchquilt/releases).
-
-## Run from this checkout
-
-Requires Node.js 22.12+ and Git. Dependencies and pnpm are pinned.
+Or use pnpm:
 
 ```sh
+pnpm dlx branchquilt@alpha build .
+```
+
+Open **`branchquilt/index.html`** in your browser. No server required.
+
+To keep the tool in your project:
+
+```sh
+npm install --save-dev branchquilt@alpha
+npx branchquilt build .
+```
+
+With pnpm, use `pnpm add -D branchquilt@alpha` and `pnpm exec branchquilt build .`.
+
+## Run from Git
+
+```sh
+git clone https://github.com/penguinkang/branchquilt.git
+cd branchquilt
 pnpm install --frozen-lockfile
 pnpm build
-node dist/cli.cjs build /path/to/repository --branch main --branch team/integration
+node dist/cli.cjs build /path/to/your/repo
 ```
 
-Open the generated `branchquilt/index.html` directly in a browser. It needs no server or network. Only committed snapshots are analyzed; the target checkout and index are not changed.
+Use pnpm 9.15.4 for this checkout. The HTML is written inside the **target repository**, at `branchquilt/index.html`.
+
+## Common commands
+
+Run these inside your target repository:
 
 ```sh
-node dist/cli.cjs init /path/to/repository
-node dist/cli.cjs doctor /path/to/repository
-node dist/cli.cjs build /path/to/repository --history-days 30 --max-commits 100 --json
-node dist/cli.cjs refresh /path/to/repository --timeout 600 --json
-pnpm demo
+# Compare two existing branches
+npx branchquilt@alpha build . --branch main --branch feature/my-work
+
+# Include GitHub PRs and reviews (repository inferred from origin)
+npx branchquilt@alpha build . --github required
+
+# Refresh an existing report; suitable for a scheduled job
+npx branchquilt@alpha refresh . --timeout 600 --json
+
+# Create configuration or see all options
+npx branchquilt@alpha init .
+npx branchquilt@alpha build --help
 ```
 
-`init` writes `branchquilt.config.json` without overwriting existing configuration. `build --help` lists the supported alpha interface. The larger plan includes future options that this version deliberately rejects. GitHub access is opt-in: `--github required` reads public data or uses `GH_TOKEN` / `GITHUB_TOKEN`; `auto` skips without a token.
+For private GitHub repositories, supply `GH_TOKEN` or `GITHUB_TOKEN` through your environment. Scheduled jobs should use a pinned local installation; see the setup guide below.
 
-## Package locally
+## Explore the map
 
-```sh
-pnpm build
-pnpm pack --pack-destination work
-# In a separate consumer project, using the actual absolute tarball path:
-pnpm add -D /absolute/path/to/branchquilt-0.4.0-alpha.1.tgz
-pnpm exec branchquilt build .
-```
+Select a region for details; use **Open →** to explore folders and functions. Move the pointer near the top or bottom edge to reveal controls. **Reviews** highlights PR scope, **Activity** shows history, and **Search** filters files and contributors.
 
-The npm alpha and GitHub release use the same packaged artifact. Local tarball installation is useful for isolated testing.
+Analysis uses committed snapshots; uncommitted changes are excluded. PR coverage is file-level. Reports can contain private repository metadata, so review them before sharing.
 
-## Verify
+[GitHub setup](https://github.com/penguinkang/branchquilt/blob/main/docs/github.md) · [Scheduled jobs & Pages](https://github.com/penguinkang/branchquilt/blob/main/docs/automation.md) · [Known limits](https://github.com/penguinkang/branchquilt/blob/main/docs/phase-4-delivery.md) · [Downloads](https://github.com/penguinkang/branchquilt/releases)
 
-```sh
-pnpm exec playwright install chromium
-pnpm check
-```
-
-The browser tests open the artifact using `file://`, check navigation/comparison/inspector/history, a 10,000-file case, and assert no external requests. Integration tests exercise real Git histories, exclusions, malicious metadata, and output safety. Current local verification is macOS/Chromium; cross-platform release validation remains pending.
-
-## Interpretation
-
-Single-branch area is committed bytes. Two-branch comparison uses shared maximum-byte slots; each pane displays actual sizes. Switch between recent non-merge commit activity and current-line blame ownership. Neither measures productivity. Mixed-author regions are neutral; use Search → Contributor or the named legend to highlight someone. Open a supported source file to explore nested declarations and residual code. Commit history is bounded and file-level; it does not reconstruct branch creation dates or historical function identity.
-
-The alpha exports paths, file metadata, contributor display names, commit subjects, and timestamps. It excludes raw source, author emails, and common credential paths by default. Review metadata before sharing a report. A build lock prevents simultaneous writers; verified dead local owners can be recovered with `--recover-lock`. Foreign or malformed locks require manual inspection. Scheduled report and Pages templates are supplied but are not activated automatically.
+MIT licensed.
