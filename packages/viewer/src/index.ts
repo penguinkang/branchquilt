@@ -4,7 +4,7 @@ import type {Atlas,Entry,Tree,PullRequest} from '../../schema/src/index.js';
 const data:Atlas=JSON.parse(document.querySelector('#atlas-data')!.textContent!);
 const $=(s:string)=>document.querySelector(s) as HTMLElement;
 function el<K extends keyof HTMLElementTagNameMap>(tag:K,text='',cls=''):HTMLElementTagNameMap[K]{const e=document.createElement(tag);e.textContent=text;if(cls)e.className=cls;return e;}
-function button(label:string,action:()=>void){const b=el('button',label);b.type='button';b.onclick=action;return b;}
+function button(label:string,action:(event:MouseEvent)=>void){const b=el('button',label);b.type='button';b.onclick=action;return b;}
 const bytes=(n:number)=>n>=1024?`${(n/1024).toFixed(1)} KiB`:`${n} B`;
 let current=0,compare=-1,scope='',query='',selected='',inspectorOpen=false,trigger:HTMLElement|null=null;
 const color=(id:string)=>`hsl(${parseInt(id.slice(0,8),16)%360} 28% 72%)`;
@@ -14,11 +14,12 @@ let sizeMode:'children'|'bytes'='children',sizeScale:'linear'|'log'='linear';
 $('#size-linear').onclick=()=>{sizeScale='linear';render();};
 $('#size-log').onclick=()=>{sizeScale='log';render();};
 const tooltip=$('#object-tooltip');
-function hoverName(target:HTMLElement,name:string){
- target.title=name;
- const show=()=>{tooltip.textContent=name;tooltip.hidden=false;target.setAttribute('aria-describedby','object-tooltip');const r=target.getBoundingClientRect();tooltip.style.left=Math.max(8,Math.min(r.left,innerWidth-tooltip.offsetWidth-8))+'px';tooltip.style.top=Math.max(8,Math.min(r.bottom+6,innerHeight-tooltip.offsetHeight-8))+'px';};
+function hoverName(target:HTMLElement,name:string,meaning:string,swatch:string){
+ target.title=`${name}\n${meaning}`;
+ const place=(x:number,y:number)=>{let left=x+14,top=y+16;if(left+tooltip.offsetWidth>innerWidth-8)left=x-tooltip.offsetWidth-14;if(top+tooltip.offsetHeight>innerHeight-8)top=y-tooltip.offsetHeight-12;tooltip.style.left=Math.max(8,left)+'px';tooltip.style.top=Math.max(8,top)+'px';};
+ const show=(event:MouseEvent|FocusEvent)=>{tooltip.textContent=`${name}\n${meaning}`;tooltip.style.borderLeftColor=swatch;tooltip.hidden=false;target.setAttribute('aria-describedby','object-tooltip');if(event instanceof MouseEvent)place(event.clientX,event.clientY);else{const r=target.getBoundingClientRect();place(r.left+r.width/2,r.top+r.height/2);}};
  const hide=()=>{tooltip.hidden=true;target.removeAttribute('aria-describedby');};
- target.addEventListener('mouseenter',show);target.addEventListener('mouseleave',hide);target.addEventListener('focus',show);target.addEventListener('blur',hide);
+ target.addEventListener('mouseenter',show);target.addEventListener('mousemove',event=>place(event.clientX,event.clientY));target.addEventListener('mouseleave',hide);target.addEventListener('focus',show);target.addEventListener('blur',hide);
 }
 function visualTree(files:Entry[],symbolFiles=files):Tree{
  const root=tree(files),byPath=new Map(symbolFiles.filter(file=>file.symbols?.length).map(file=>[file.path,file]));
@@ -109,7 +110,7 @@ function render(){
   $('#breadcrumbs').replaceChildren(button('Repository',()=>{scope='';render();}));
   for(const node of chain.slice(1))$('#breadcrumbs').append(button(node.name,()=>enterScope(node.path)));
   $('#map-title').textContent=b?'Compare branch snapshots':'Explore the shared branch';
-  $('#map-description').textContent=b?'Aligned slots use shared child counts or maximum bytes. Expanding a source file switches to that pane’s branch for symbol exploration.':'Click a box to subdivide it in place; Open → shows its inspector.';
+  $('#map-description').textContent=b?'Aligned slots use shared child counts or maximum bytes. Expanding a source file switches to that pane’s branch for symbol exploration.':'Click to subdivide. Cmd/Ctrl+click or the hover ↗ opens details.';
   const sizing=`Area = ${sizeScale==='log'?'log(1 + value)':'linear'} ${sizeMode==='children'?'immediate children (leaves count as 1)':'bytes'}`;
   $('#legend').textContent=sizing+' · '+(b?'aligned comparison slots · ':'')+`${colorMode==='ownership'?'current-line blame':'commit activity'} · gray = mixed or unknown`;
   if(contributor)$('#legend').textContent+=' · '+people.get(contributor);
@@ -145,15 +146,16 @@ function render(){
       if(touching.length&&!symbolId)box.append(el('small',`${touching.length} PR${touching.length>1?'s':''} · file-level`));
       if(!paths.length)box.classList.add('absent');if((query&&!child.path.toLowerCase().includes(query))||(contributor&&!authors.some(a=>a[0]===contributor)))box.classList.add('dim');
       const canEnter=!!child.children?.length,isFileNode=files.some(file=>file.path===child.path);
-      const select=button(`${child.name}${child.children&&!symbolId&&!isFileNode?'/':''}`,()=>{if(canEnter){if(b&&!child.path.includes('#')&&paths.length===1&&paths[0].symbols?.length){current=index;branch.value=String(index);compare=-1;other.value='-1';}enterScope(region.expanded?(parent.get(child.path)??''):child.path);}else inspectFile(child.path,index);});select.className='tile-select';box.append(select);
+      const select=button(`${child.name}${child.children&&!symbolId&&!isFileNode?'/':''}`,event=>{if(event.metaKey||event.ctrlKey){inspectFile(child.path,index);return;}if(canEnter){if(b&&!child.path.includes('#')&&paths.length===1&&paths[0].symbols?.length){current=index;branch.value=String(index);compare=-1;other.value='-1';}enterScope(region.expanded?(parent.get(child.path)??''):child.path);}else inspectFile(child.path,index);});select.className='tile-select';box.append(select);
       let fullName=child.path;
       if(symbolId){const symbols=paths[0]?.symbols??[];let symbol=symbols.find(s=>s.id===symbolId);const names:string[]=[];while(symbol){names.unshift(symbol.name);symbol=symbols.find(s=>s.id===symbol!.parentId);}fullName=filePath+' → '+(names.join(' → ')||child.name);}
-      hoverName(box,fullName);select.title=fullName;select.setAttribute('aria-description',fullName);
+      const meaning=authors.length===1?`${authors[0][1]} · ${colorMode==='ownership'?'line ownership':'recent activity'}`:authors.length>1?`${authors.length} contributors · mixed ${colorMode==='ownership'?'ownership':'activity'}`:`No ${colorMode==='ownership'?'ownership':'activity'} attribution`;
+      const swatch=authors.length===1?color(authors[0][0]):'#87988d';hoverName(box,fullName,meaning,swatch);select.title=`${fullName}\n${meaning}`;select.setAttribute('aria-description',`${fullName}. ${meaning}`);
       box.dataset.path=child.path;box.dataset.weight=String(weight(child));
       box.append(el('small',paths.length?bytes(child.path.includes('#')?child.bytes:paths.reduce((n,f)=>n+f.bytes,0)):'Absent'));
-      if(authors.length>1)box.append(el('small',`${authors.length} contributors`));
+      if(authors.length){const badge=el('span',authors.length===1?authors[0][1]:`Mixed · ${authors.length}`,'contributor-badge');badge.style.setProperty('--contributor-color',swatch);badge.title=meaning;box.append(badge);}
       if(b&&!child.children)box.append(el('small',change(a.files.find(f=>f.path===child.path),b.files.find(f=>f.path===child.path))));
-      const details=button('Open →',()=>inspectFile(child.path,index));details.className='open';details.setAttribute('aria-label',`Open details: ${child.name}`);box.append(details);
+      const details=button('↗',()=>inspectFile(child.path,index));details.className='open';details.title=`Open details for ${fullName} · Cmd/Ctrl+click`;details.setAttribute('aria-label',`Open details: ${child.name}`);box.append(details);
       map.append(box);
     }
     if(omitted>0)map.append(el('p',`${omitted} small or excess regions omitted · use Files / search for all paths`,'sr-only map-limit'));

@@ -14,9 +14,9 @@ try{
  await page.goto(pathToFileURL(join(root,'branchquilt/index.html')).href);
  assert(await page.locator('#files-panel').isHidden());assert(await page.locator('#activity-panel').isHidden());
  assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight));
- await page.getByRole('button',{name:'Open details: src',exact:true}).click();await page.waitForSelector('#inspector:not([hidden])');
+ await page.getByRole('button',{name:'src/',exact:true}).click({modifiers:[process.platform==='darwin'?'Meta':'Control']});await page.waitForSelector('#inspector:not([hidden])');
  assert((await page.locator('#details').textContent())!.includes('directory'));
- await page.getByRole('button',{name:'Open details: src',exact:true}).click();assert(await page.locator('#inspector').isHidden());
+ await page.getByRole('button',{name:'src/',exact:true}).click({modifiers:[process.platform==='darwin'?'Meta':'Control']});assert(await page.locator('#inspector').isHidden());
  await page.getByRole('button',{name:'src/',exact:true}).click();assert((await page.locator('#breadcrumbs').textContent())!.includes('src'));assert((await page.locator('.tile[data-path="src"]').getAttribute('class'))!.includes('expanded'));
  await page.getByRole('button',{name:'auth.ts',exact:true}).click();await page.getByRole('button',{name:'login',exact:true}).first().click();assert((await page.locator('#details').textContent())!.includes('UTF-8'));await page.keyboard.press('Escape');
  await page.locator('#compare').selectOption('1');assert.equal(await page.locator('.pane').count(),2);

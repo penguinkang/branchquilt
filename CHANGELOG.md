@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0-alpha.6
+
+- Label contributor colors directly on sufficiently large treemap regions and explain mixed, unknown, activity, and ownership colors in the hover tooltip.
+- Replace persistent **Open →** buttons with a compact **↗** action that appears on hover or keyboard focus; Cmd/Ctrl+click also opens details.
+- Make full-name and color tooltips follow the pointer while staying inside the viewport.
+
 ## 0.4.0-alpha.5
 
 - Move treemap area and Linear/Log controls into a persistent lower-right overlay so scaling is always discoverable.
