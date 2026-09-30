@@ -1,0 +1,63 @@
+# Copy to .github/workflows/branchquilt-pages.yml after following docs/automation.md.
+# Publishes repository metadata. Nothing is enabled merely by shipping this template.
+name: BranchQuilt Pages
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions: {}
+concurrency:
+  group: branchquilt-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: '9.15.4'
+          run_install: false
+      - name: Install the pinned tool outside the analyzed repository
+        shell: bash
+        run: |
+          cp -R .branchquilt-tool "$RUNNER_TEMP/branchquilt-tool"
+          pnpm --dir "$RUNNER_TEMP/branchquilt-tool" install --frozen-lockfile --ignore-scripts
+      - name: Refresh report
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pnpm --dir "$RUNNER_TEMP/branchquilt-tool" exec branchquilt refresh "$GITHUB_WORKSPACE" --github required --github-repo "$GITHUB_REPOSITORY" --output branchquilt --timeout 600 --json
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: branchquilt
+  deploy:
+    # Explicit repository variable prevents accidental publishing during setup.
+    if: vars.BRANCHQUILT_PUBLISH == 'true'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

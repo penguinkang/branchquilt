@@ -1,0 +1,77 @@
+{
+  "name": "branchquilt",
+  "version": "0.4.0-alpha.1",
+  "description": "Offline branch contribution maps for team code review",
+  "type": "module",
+  "bin": {
+    "branchquilt": "dist/cli.cjs"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "docs/phase-status.md",
+    "licenses",
+    "docs/parsers.md",
+    "docs/phase-2-delivery.md",
+    "docs/github.md",
+    "docs/phase-3-delivery.md",
+    "docs/automation.md",
+    "docs/phase-4-delivery.md",
+    "examples/automation",
+    "LICENSE",
+    "docs/implementation-plan.md",
+    "docs/backlog",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "tsx tests/browser.ts",
+    "check": "pnpm typecheck && pnpm build && pnpm test && pnpm test:browser && pnpm test:reviews && pnpm test:scale",
+    "demo": "tsx scripts/demo.ts",
+    "test:package": "pnpm pack --pack-destination work && tsx tests/package-smoke.ts && tsx tests/workflow-smoke.ts",
+    "test:reviews": "pnpm demo && tsx tests/reviews-browser.ts",
+    "test:scale": "tsx tests/scale-browser.ts"
+  },
+  "dependencies": {
+    "commander": "15.0.0",
+    "d3-hierarchy": "3.1.2",
+    "web-tree-sitter": "0.25.10",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/d3-hierarchy": "3.1.7",
+    "@types/node": "26.6.3",
+    "esbuild": "0.28.2",
+    "playwright": "1.63.0",
+    "tree-sitter-wasms": "0.1.13",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "yaml": "2.9.1"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/penguinkang/branchquilt.git"
+  },
+  "homepage": "https://github.com/penguinkang/branchquilt#readme",
+  "bugs": {
+    "url": "https://github.com/penguinkang/branchquilt/issues"
+  },
+  "keywords": [
+    "git",
+    "github",
+    "visualization",
+    "treemap",
+    "code-review"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  }
+}
