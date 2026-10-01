@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0-alpha.9 · unpublished
+
+- Add a five-step first-run tour with anchored cards and animated highlights for branch context, treemap drill-down, sizing, review tools and contributor colors.
+- Let users close the tour, reopen it from **Tips**, complete it, or hide it for seven days using browser-only storage.
+- Respect reduced-motion preferences throughout the guided tour.
+
 ## 0.4.0-alpha.8
 
 - Add a branch-aware **PR scope** selector beside Branch and Compare.

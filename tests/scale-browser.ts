@@ -12,7 +12,7 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage({viewport:{width:1440,height:960},reducedMotion:'reduce'}),errors:string[]=[],requests:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});
- const start=performance.now();await page.goto(pathToFileURL(path).href);await page.waitForSelector('.map-limit',{state:'attached'});const loadMs=Math.round(performance.now()-start);
+ const start=performance.now();await page.goto(pathToFileURL(path).href);await page.getByRole('button',{name:'Close tips'}).click();await page.waitForSelector('.map-limit',{state:'attached'});const loadMs=Math.round(performance.now()-start);
  assert(loadMs<10000,'10k-file initial load exceeded 10s budget');assert(await page.locator('.tile').count()>0&&await page.locator('.tile').count()<=500);assert((await page.locator('#freshness').textContent())?.includes('Stale report'));
  await page.mouse.move(700,450);await page.waitForFunction(()=>getComputedStyle(document.querySelector('.topbar')!).opacity==='0');
  await page.keyboard.press('Tab');assert.equal(await page.locator('.topbar').evaluate(e=>getComputedStyle(e).opacity),'1');

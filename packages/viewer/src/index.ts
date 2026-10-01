@@ -7,6 +7,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag:K,text='',cls=''):HTMLEle
 function button(label:string,action:(event:MouseEvent)=>void){const b=el('button',label);b.type='button';b.onclick=action;return b;}
 const bytes=(n:number)=>n>=1024?`${(n/1024).toFixed(1)} KiB`:`${n} B`;
 let current=0,compare=-1,scope='',query='',selected='',inspectorOpen=false,trigger:HTMLElement|null=null;
+let tourOpen=false,tourIndex=0,tourTarget:HTMLElement|null=null;
 const color=(id:string)=>`hsl(${parseInt(id.slice(0,8),16)%360} 28% 72%)`;
 let contributor='',colorMode='activity';
 let sizeMode:'children'|'bytes'='children',sizeScale:'linear'|'log'='linear';
@@ -70,6 +71,7 @@ function togglePanel(name:string,force?:boolean){
 for(const name of panels)$(`#toggle-${name}`).onclick=()=>togglePanel(name);
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){tooltip.hidden=true;
+    if(tourOpen){closeTour();return;}
     if(inspectorOpen){closeInspector();return;}
     const active=panels.find(name=>!$(`#${name}-panel`).hidden);
     for(const name of panels){$(`#${name}-panel`).hidden=true;$(`#toggle-${name}`).setAttribute('aria-expanded','false');}
@@ -223,4 +225,36 @@ function renderReviews(){
   lane.append(track,el('small',events.length?`${new Date(min).toISOString().slice(0,10)} → ${new Date(max).toISOString().slice(0,10)} · shared time scale${shown.length<events.length?' · 200 of '+events.length+' events sampled':''}`:'No dated events'));timeline.append(lane);
  }
 }
+const tourSteps=[
+ {target:'.branch-control',title:'Choose the review context',copy:'Pick one branch to understand it, compare it with another branch, then choose a pull request to texture its file-level scope.',place:'below'},
+ {target:'#panes',title:'Drill into the treemap',copy:'Click a box to reveal its folders, files, classes, and functions in place. Hover for its full name; Cmd/Ctrl+click or ↗ opens details.',place:'center'},
+ {target:'.scale-control',title:'Make size differences readable',copy:'Size boxes by child count or bytes. Switch to Log when a few large regions make smaller work hard to see.',place:'above'},
+ {target:'.dock',title:'Open review tools when needed',copy:'Reviews selects several PR scopes, Activity shows branch and PR history, and Legend explains colors. Search and Files help locate exact paths.',place:'above'},
+ {target:'#info-panel',title:'Read colors without guessing',copy:'Contributor badges explain the fill directly on larger boxes. The legend starts open and remains available from the bottom toolbar.',place:'right'}
+] as const;
+function positionTour(){
+ const card=$('#tips-card');if(!tourOpen||!tourTarget||card.hidden)return;
+ const r=tourTarget.getBoundingClientRect(),width=card.offsetWidth,height=card.offsetHeight,gap=14,pad=10,step=tourSteps[tourIndex];let left=r.left+(r.width-width)/2,top=r.bottom+gap;
+ if(step.place==='above')top=r.top-height-gap;
+ if(step.place==='right'){left=r.right+gap;top=r.top;}
+ if(step.place==='center'){left=r.left+(r.width-width)/2;top=r.top+(r.height-height)/2;}
+ if(left+width>innerWidth-pad)left=innerWidth-width-pad;if(left<pad)left=pad;
+ if(top+height>innerHeight-pad)top=Math.max(pad,r.top-height-gap);if(top<pad)top=pad;
+ card.style.left=`${left}px`;card.style.top=`${top}px`;
+}
+function showTour(index=0){
+ tourTarget?.classList.remove('tour-target');tourIndex=Math.max(0,Math.min(index,tourSteps.length-1));const step=tourSteps[tourIndex];tourTarget=$(step.target);tourTarget.classList.add('tour-target');tourOpen=true;
+ const card=$('#tips-card');card.hidden=false;$('#tip-progress').textContent=`Tip ${tourIndex+1} of ${tourSteps.length}`;$('#tip-title').textContent=step.title;$('#tip-copy').textContent=step.copy;
+ ($('#tip-back') as HTMLButtonElement).disabled=tourIndex===0;$('#tip-next').textContent=tourIndex===tourSteps.length-1?'Done':'Next';$('#toggle-tips').setAttribute('aria-expanded','true');requestAnimationFrame(positionTour);
+}
+function closeTour(){tourOpen=false;tourTarget?.classList.remove('tour-target');tourTarget=null;$('#tips-card').hidden=true;$('#toggle-tips').setAttribute('aria-expanded','false');}
+function completeTour(){try{localStorage.setItem('branchquilt:tips:complete:v1','1');}catch{}closeTour();}
+$('#toggle-tips').onclick=()=>tourOpen?closeTour():showTour();
+$('#close-tips').onclick=()=>closeTour();
+$('#tip-back').onclick=()=>showTour(tourIndex-1);
+$('#tip-next').onclick=()=>tourIndex===tourSteps.length-1?completeTour():showTour(tourIndex+1);
+$('#tip-dismiss').onclick=()=>{try{localStorage.setItem('branchquilt:tips:hidden-until:v1',String(Date.now()+7*24*60*60*1000));}catch{}closeTour();};
+addEventListener('resize',positionTour);
 render();
+let tipsSuppressed=false;try{tipsSuppressed=localStorage.getItem('branchquilt:tips:complete:v1')==='1'||Number(localStorage.getItem('branchquilt:tips:hidden-until:v1'))>Date.now();}catch{}
+if(!tipsSuppressed)showTour();

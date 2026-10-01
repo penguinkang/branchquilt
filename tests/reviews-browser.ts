@@ -6,6 +6,7 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage({viewport:{width:1440,height:960}});const errors:string[]=[],requests:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});
  await page.goto(pathToFileURL(resolve('work/demo/index.html')).href);
+ await page.getByRole('button',{name:'Close tips'}).click();
  assert.equal(await page.locator('#pr-scope option').count(),4);const src=page.locator('.tile[data-path="src"]');const contributorColor=await src.evaluate(e=>getComputedStyle(e).backgroundColor);await page.locator('#pr-scope').selectOption('42');assert((await src.getAttribute('class'))!.includes('pr-covered'));assert.equal(await src.evaluate(e=>getComputedStyle(e).backgroundColor),contributorColor);const texture=await src.evaluate(e=>getComputedStyle(e,'::after'));assert(texture.backgroundImage.includes('repeating-linear-gradient'));assert.notEqual(texture.animationName,'none');assert((await src.locator('.pr-badge').innerText()).includes('#42'));
  await page.getByRole('button',{name:'Reviews',exact:true}).click();assert.equal(await page.locator('.pr-row').count(),3);
  await page.getByRole('checkbox',{name:'Highlight PR 42',exact:true}).check();await page.getByRole('checkbox',{name:'Highlight PR 43',exact:true}).check();assert(await page.locator('.tile.dim').count()>0);assert(await page.locator('.tile.pr-overlap').count()>0);assert((await page.locator('#pr-scope option:checked').innerText()).includes('2 selected'));

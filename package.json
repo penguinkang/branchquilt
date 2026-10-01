@@ -1,6 +1,6 @@
 {
   "name": "branchquilt",
-  "version": "0.4.0-alpha.8",
+  "version": "0.4.0-alpha.9",
   "description": "Offline branch contribution maps for team code review",
   "type": "module",
   "bin": {

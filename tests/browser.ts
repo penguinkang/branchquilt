@@ -12,6 +12,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:1050}});const errors:string[]=[],requests:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});
  await page.goto(pathToFileURL(join(root,'branchquilt/index.html')).href);
+ await page.getByRole('button',{name:'Close tips'}).click();
  assert(await page.locator('#files-panel').isHidden());assert(await page.locator('#activity-panel').isHidden());
  assert(await page.locator('#info-panel').isVisible());await page.getByRole('button',{name:'Close legend'}).click();assert(await page.locator('#info-panel').isHidden());
  assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight));
