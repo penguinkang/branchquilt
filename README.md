@@ -69,7 +69,7 @@ For private GitHub repositories, supply `GH_TOKEN` or `GITHUB_TOKEN` through you
 
 ## Explore the map
 
-Click a box to subdivide it in place into folders, files, classes and functions. Hover to reveal **↗**, or Cmd/Ctrl+click, for details. The cursor tooltip names the object and explains its contributor color; larger boxes also show contributor badges. **Size** switches between child counts and bytes; **Linear / Log** adjusts the scale. Leaves count as one child-sized unit. Move the pointer near the top or bottom edge to reveal controls. **Reviews** highlights PR scope, **Activity** shows history, and **Search** filters files and contributors.
+Click a box to subdivide it in place into folders, files, classes and functions. Hover to reveal **↗**, or Cmd/Ctrl+click, for details. The cursor tooltip names the object and explains its contributor color; larger boxes also show contributor badges. Choose a branch’s **PR scope** to overlay its changed files with animated diagonal texture while retaining contributor colors. Select several PRs from **Reviews** to see overlaps. **Size** switches between child counts and bytes; **Linear / Log** adjusts the scale. Leaves count as one child-sized unit. Move the pointer near the top or bottom edge to reveal secondary controls. **Activity** shows history, and **Search** filters files and contributors.
 
 Analysis uses committed snapshots; uncommitted changes are excluded. PR coverage is file-level. Reports can contain private repository metadata, so review them before sharing.
 

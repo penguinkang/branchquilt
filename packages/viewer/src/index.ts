@@ -50,7 +50,7 @@ $('#catalog-summary').textContent=`${data.snapshots.length} branches embedded ·
 const branch=$('#branch') as HTMLSelectElement,other=$('#compare') as HTMLSelectElement;
 data.snapshots.forEach((s,i)=>{branch.add(new Option(s.ref,String(i)));other.add(new Option(s.ref,String(i)));});
 const embedded=new Set(data.snapshots.map(snapshot=>snapshot.ref));for(const ref of data.refs)if(!embedded.has(ref.ref)){const a=new Option(`${ref.ref} · catalog only`,'catalog:'+ref.ref),b=new Option(`${ref.ref} · catalog only`,'catalog:'+ref.ref);a.disabled=true;b.disabled=true;branch.add(a);other.add(b);}
-branch.onchange=()=>{current=Number(branch.value);if(compare===current){compare=-1;other.value='-1';}scope='';render();};
+branch.onchange=()=>{current=Number(branch.value);if(compare===current){compare=-1;other.value='-1';}selectedPRs.clear();scope='';render();};
 other.onchange=()=>{compare=Number(other.value);if(compare===current){compare=-1;other.value='-1';}scope='';render();};
 ($('#search') as HTMLInputElement).oninput=e=>{query=(e.target as HTMLInputElement).value.toLowerCase();togglePanel('files',!!query);render();};
 $('#close-inspector').onclick=()=>closeInspector();
@@ -114,7 +114,7 @@ function render(){
   $('#map-title').textContent=b?'Compare branch snapshots':'Explore the shared branch';
   $('#map-description').textContent=b?'Aligned slots use shared child counts or maximum bytes. Expanding a source file switches to that pane’s branch for symbol exploration.':'Click to subdivide. Cmd/Ctrl+click or the hover ↗ opens details.';
   const sizing=`Area = ${sizeScale==='log'?'log(1 + value)':'linear'} ${sizeMode==='children'?'immediate children (leaves count as 1)':'bytes'}`;
-  $('#legend').textContent=sizing+' · '+(b?'aligned comparison slots · ':'')+`${colorMode==='ownership'?'current-line blame':'commit activity'} · gray = mixed or unknown`;
+  $('#legend').textContent=sizing+' · '+(b?'aligned comparison slots · ':'')+`${colorMode==='ownership'?'current-line blame':'commit activity'} · gray = mixed or unknown${selectedPRs.size?' · animated diagonal texture = selected PR file-level scope':''}`;
   if(contributor)$('#legend').textContent+=' · '+people.get(contributor);
   const panes=$('#panes');panes.replaceChildren();panes.classList.toggle('paired',!!b);
   const weight=(c:Tree)=>Math.max(boxWeight(c,a.files,sizeMode,sizeScale),b?boxWeight(c,b.files,sizeMode,sizeScale):0);
@@ -144,18 +144,19 @@ function render(){
       box.style.background=contributor&&authors.some(a=>a[0]===contributor)?color(contributor):authors.length===1?color(authors[0][0]):'#dce3df';
       const touching=(data.github?.pullRequests??[]).filter(pr=>pr.files.some(f=>f.path===filePath||f.path.startsWith(filePath+'/')||f.oldPath===filePath));
       const chosen=touching.filter(pr=>selectedPRs.has(pr.number));
-      if(selectedPRs.size){if(chosen.length&&!symbolId){box.style.outline=`3px solid ${chosen.length===1?color(chosen[0].authorId):'#42594a'}`;box.style.outlineOffset='-3px';}else box.classList.add('dim');}
+      if(selectedPRs.size){if(chosen.length&&!symbolId){const prColor=color(chosen[0].authorId);box.classList.add('pr-covered');box.classList.toggle('pr-overlap',chosen.length>1);box.style.setProperty('--pr-color',prColor);box.style.setProperty('--pr-color-2',chosen[1]?color(chosen[1].authorId):prColor);box.style.outline=`3px solid ${chosen.length===1?prColor:'#42594a'}`;box.style.outlineOffset='-3px';box.dataset.prScope=chosen.map(pr=>String(pr.number)).join(',');}else box.classList.add('dim');}
       if(touching.length&&!symbolId)box.append(el('small',`${touching.length} PR${touching.length>1?'s':''} · file-level`));
       if(!paths.length)box.classList.add('absent');if((query&&!child.path.toLowerCase().includes(query))||(contributor&&!authors.some(a=>a[0]===contributor)))box.classList.add('dim');
       const canEnter=!!child.children?.length,isFileNode=files.some(file=>file.path===child.path);
       const select=button(`${child.name}${child.children&&!symbolId&&!isFileNode?'/':''}`,event=>{if(event.metaKey||event.ctrlKey){inspectFile(child.path,index);return;}if(canEnter){if(b&&!child.path.includes('#')&&paths.length===1&&paths[0].symbols?.length){current=index;branch.value=String(index);compare=-1;other.value='-1';}enterScope(region.expanded?(parent.get(child.path)??''):child.path);}else inspectFile(child.path,index);});select.className='tile-select';box.append(select);
       let fullName=child.path;
       if(symbolId){const symbols=paths[0]?.symbols??[];let symbol=symbols.find(s=>s.id===symbolId);const names:string[]=[];while(symbol){names.unshift(symbol.name);symbol=symbols.find(s=>s.id===symbol!.parentId);}fullName=filePath+' → '+(names.join(' → ')||child.name);}
-      const meaning=authors.length===1?`${authors[0][1]} · ${colorMode==='ownership'?'line ownership':'recent activity'}`:authors.length>1?`${authors.length} contributors · mixed ${colorMode==='ownership'?'ownership':'activity'}`:`No ${colorMode==='ownership'?'ownership':'activity'} attribution`;
+      let meaning=authors.length===1?`${authors[0][1]} · ${colorMode==='ownership'?'line ownership':'recent activity'}`:authors.length>1?`${authors.length} contributors · mixed ${colorMode==='ownership'?'ownership':'activity'}`:`No ${colorMode==='ownership'?'ownership':'activity'} attribution`;if(chosen.length&&!symbolId)meaning+=`\nPR ${chosen.map(pr=>'#'+pr.number).join(', ')} · file-level scope`;
       const swatch=authors.length===1?color(authors[0][0]):'#87988d';hoverName(box,fullName,meaning,swatch);select.title=`${fullName}\n${meaning}`;select.setAttribute('aria-description',`${fullName}. ${meaning}`);
       box.dataset.path=child.path;box.dataset.weight=String(weight(child));
       box.append(el('small',paths.length?bytes(child.path.includes('#')?child.bytes:paths.reduce((n,f)=>n+f.bytes,0)):'Absent'));
       if(authors.length){const badge=el('span',authors.length===1?authors[0][1]:`Mixed · ${authors.length}`,'contributor-badge');badge.style.setProperty('--contributor-color',swatch);badge.title=meaning;box.append(badge);}
+      if(chosen.length&&!symbolId)box.append(el('span',chosen.map(pr=>'#'+pr.number).join(' · '),'pr-badge'));
       if(b&&!child.children)box.append(el('small',change(a.files.find(f=>f.path===child.path),b.files.find(f=>f.path===child.path))));
       const details=button('↗',()=>inspectFile(child.path,index));details.className='open';details.title=`Open details for ${fullName} · Cmd/Ctrl+click`;details.setAttribute('aria-label',`Open details: ${child.name}`);box.append(details);
       map.append(box);
@@ -181,6 +182,7 @@ function render(){
 }
 
 const selectedPRs=new Set<number>();
+const prScope=$('#pr-scope') as HTMLSelectElement;prScope.onchange=()=>{selectedPRs.clear();if(prScope.value)selectedPRs.add(Number(prScope.value));render();};
 const reviewerInput=$('#reviewer-filter') as HTMLInputElement;reviewerInput.value=data.github?.reviewer??'';
 reviewerInput.oninput=()=>renderReviews();($('#review-search') as HTMLInputElement).oninput=()=>renderReviews();
 $('#clear-pr-scope').onclick=()=>{selectedPRs.clear();render();};
@@ -200,11 +202,12 @@ function renderReviews(){
  const g=data.github,queue=$('#review-list');queue.replaceChildren();
  $('#review-status').textContent=g?`${g.pullRequests.length} PRs${g.truncated?' (selection capped)':''} · ${g.status} · checked ${new Date(g.fetchedAt).toLocaleString()}`:'GitHub data not included. Rebuild with --github required --github-repo owner/repo.';
  const needle=($('#review-search') as HTMLInputElement).value.toLowerCase(),reviewer=reviewerInput.value.trim().toLowerCase();
- const ref=data.snapshots[current].ref.replace(/^origin\//,'');
+ const ref=data.snapshots[current].ref;const matchesRef=(prRef:string)=>ref===prRef||ref.endsWith('/'+prRef);
  const requested=(p:PullRequest)=>!!reviewer&&p.requested.some(r=>r.toLowerCase()===reviewer);
  const prs=[...(g?.pullRequests??[])].sort((a,b)=>Number(requested(b))-Number(requested(a))||b.updatedAt.localeCompare(a.updatedAt));
+ const relevant=prs.filter(pr=>matchesRef(pr.baseRef)||matchesRef(pr.headRef));prScope.replaceChildren(new Option(relevant.length?'Off':g?'No PRs on branch':'No GitHub data',''));for(const pr of relevant)prScope.add(new Option(`#${pr.number} · ${pr.title} · ${pr.author}`,String(pr.number)));prScope.disabled=!relevant.length;if(selectedPRs.size===1&&relevant.some(pr=>selectedPRs.has(pr.number)))prScope.value=String([...selectedPRs][0]);else if(selectedPRs.size>1){const option=new Option(`${selectedPRs.size} selected in Reviews`,'multiple',true,true);option.disabled=true;prScope.add(option);}
  for(const pr of prs){if(needle&&!`${pr.number} ${pr.title} ${pr.author} ${pr.labels.join(' ')}`.toLowerCase().includes(needle))continue;
-  const row=el('div','','pr-row');const reason=requested(pr)?'Review requested from you':pr.baseRef===ref?'Targets this branch':pr.headRef===ref?'Uses this branch as head':'Other branch';
+  const row=el('div','','pr-row');const reason=requested(pr)?'Review requested from you':matchesRef(pr.baseRef)?'Targets this branch':matchesRef(pr.headRef)?'Uses this branch as head':'Other branch';
   const toggle=el('input');toggle.type='checkbox';toggle.checked=selectedPRs.has(pr.number);toggle.setAttribute('aria-label',`Highlight PR ${pr.number}`);toggle.onchange=()=>{if(toggle.checked)selectedPRs.add(pr.number);else selectedPRs.delete(pr.number);render();};
   const title=button(`#${pr.number} ${pr.title}`,()=>inspectPR(pr));title.style.borderLeft=`5px solid ${color(pr.authorId)}`;
   row.append(toggle,title,el('small',`${pr.author} · ${pr.state}${pr.draft?' · draft':''} · ${reason}${seen.has(pr.number)&&seen.get(pr.number)!==pr.headOid?' · updated since checkpoint':''}`));queue.append(row);

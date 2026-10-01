@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0-alpha.8
+
+- Add a branch-aware **PR scope** selector beside Branch and Compare.
+- Overlay selected PR file scope with lightly animated diagonal texture while preserving contributor colors and stable treemap positions.
+- Support crossed submitter-color textures for multiple PRs selected through Reviews, with PR badges, dimmed out-of-scope regions, tooltip explanations, and reduced-motion behavior.
+
 ## 0.4.0-alpha.7
 
 - Automatically embed available local and remote-tracking branches, up to a configurable 50-snapshot bound; prioritize the checked-out branch and main/master.
