@@ -5,6 +5,7 @@
 - Add a five-step first-run tour with anchored cards and animated highlights for branch context, treemap drill-down, sizing, review tools and contributor colors.
 - Let users close the tour, reopen it from **Tips**, complete it, or hide it for seven days using browser-only storage.
 - Respect reduced-motion preferences throughout the guided tour.
+- Document a clean local-output workflow and the planned one-command Pages interface with explicit Actions and dedicated-branch modes.
 
 ## 0.4.0-alpha.8
 

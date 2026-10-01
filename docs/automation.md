@@ -1,6 +1,16 @@
 # Refresh and publishing
 
-BranchQuilt 0.4.0-alpha.1 is runnable by an existing scheduler. It does not install a daemon, create a schedule, fetch Git refs, change the checkout, or publish a site when building a report.
+BranchQuilt 0.4.0-alpha.9 is runnable by an existing scheduler. It does not install a daemon, create a schedule, fetch Git refs, change the checkout, or publish a site when building a report.
+
+The current alpha writes a report inside the target repository. Keep it out of `git status` without changing the shared `.gitignore`:
+
+```sh
+exclude_file="$(git rev-parse --git-path info/exclude)"
+grep -qxF '/.branchquilt/' "$exclude_file" || printf '\n/.branchquilt/\n' >> "$exclude_file"
+pnpm exec branchquilt refresh . --output .branchquilt/site
+```
+
+The planned `view` command will place local reports under the private per-worktree Git directory automatically. An explicit `--output` will continue to support tracked or user-managed destinations.
 
 ## Local refresh
 
@@ -44,11 +54,34 @@ The cache budget is split equally between analysis and GitHub metadata. Eviction
 
 The static viewer evaluates age against `staleAfterMinutes` when opened and once per minute. Legend & info indicates staleness, and each GitHub snapshot retains its own fetched timestamp. No background network polling occurs. A new HTML artifact must be opened/reloaded after refresh. Fresh generation time does not mean the local branch tip is current with origin.
 
-## GitHub Actions setup
+## Pages publication
+
+Two publication modes are part of the command design:
+
+```sh
+# GitHub Actions is available
+pnpm exec branchquilt pages init --mode actions
+
+# GitHub Actions is restricted; publish from a dedicated branch
+pnpm exec branchquilt pages init --mode branch --branch gh-pages
+
+# Uses the configured mode
+pnpm exec branchquilt publish
+```
+
+These three commands are planned and are not implemented in the current alpha. Initialization must record an explicit choice; publication must never silently fall back from Actions to a branch push.
+
+In **Actions mode**, `publish` dispatches the installed workflow, optionally waits for it, and prints the run and Pages URLs. The workflow generates under the runner's temporary directory and uploads only the validated site artifact. Manual and scheduled runs share the same workflow.
+
+In **branch mode**, `publish` generates under BranchQuilt's private Git directory and pushes only `index.html`, `.nojekyll`, and an ownership marker to a dedicated branch. It must not check out that branch or modify the source worktree/index. A pre-existing deployment branch without the ownership marker is an error. Updates use an exact remote-tip lease so concurrent or unrelated changes are not overwritten. Configure Pages once as **Deploy from a branch**, using the configured branch and `/(root)`. This mode works with a local or enterprise scheduler and ordinary Git push credentials; no Actions workflow is required. GitHub documents `.nojekyll` as the direct-publication path when Actions is unavailable: [branch publishing](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) and [Pages without Actions](https://docs.github.com/articles/emoji-on-github-pages).
+
+The current alpha ships only the Actions template described below. For a branch-source deployment today, generate into an ignored local directory, publish that directory to a dedicated `gh-pages` branch with your existing deployment tooling, add `.nojekyll`, and select that branch as the Pages source. Do not point BranchQuilt at a branch that also hosts another site.
+
+### Current GitHub Actions template
 
 Choose **one** template: `examples/automation/report.yml` retains a downloadable report for seven days; `pages.yml` also supports Pages publication. They are examples outside `.github/workflows` and are not active jobs.
 
-For reproducible scheduled runs, use a pinned, isolated tool bundle in the target repository. The following vendored-tarball setup works independently of registry access to BranchQuilt; alternatively pin the exact npm version `0.4.0-alpha.1` in the dedicated tool manifest and generate its lockfile.
+For reproducible scheduled runs, use a pinned, isolated tool bundle in the target repository. The following vendored-tarball setup works independently of registry access to BranchQuilt; alternatively pin an exact published npm version in the dedicated tool manifest and generate its lockfile.
 
 1. Build and pack this BranchQuilt checkout with `pnpm build` and `pnpm pack --pack-destination work`.
 2. Create a dedicated `.branchquilt-tool/` directory in the target repository. Copy the tarball there. Add the manifest below, then run `pnpm --dir .branchquilt-tool install --lockfile-only --ignore-scripts --ignore-workspace` to produce its lockfile. Commit the manifest, lockfile and tarball if you choose to activate a workflow. Do not commit `node_modules`.
@@ -60,7 +93,7 @@ For reproducible scheduled runs, use a pinned, isolated tool bundle in the targe
   "name": "branchquilt-automation-tool",
   "private": true,
   "packageManager": "pnpm@9.15.4",
-  "dependencies": {"branchquilt": "file:./branchquilt-0.4.0-alpha.1.tgz"}
+  "dependencies": {"branchquilt": "file:./branchquilt-VERSION.tgz"}
 }
 ```
 

@@ -355,16 +355,18 @@ Required invariants: unique IDs, valid references, acyclic parent graph, one bra
 |---|---|
 | `branchquilt init` | Write commented documentation plus a JSON config; never overwrite existing files silently |
 | `branchquilt build [path]` | Analyze committed snapshots and generate HTML; path defaults to current repository |
+| `branchquilt view [path]` | Build beneath the private per-worktree Git directory and open the standalone report; leave `git status` unchanged |
 | `branchquilt refresh [path]` | One unattended cycle: lock → explicit configured fetch → resolve snapshots → refresh metadata → validate → replace artifact; never deploy by itself |
 | `branchquilt fetch [path]` | Explicitly fetch selected refs/PR objects; no checkout, no output generation |
 | `branchquilt serve [output]` | Optional loopback-only static preview server; standalone HTML also works without it |
 | `branchquilt doctor [path]` | Check Git/runtime, refs, parsers, output paths, auth availability; redact secrets |
 | `branchquilt cache stats\|clear` | Inspect or delete only this repository's tool-owned cache |
-| `branchquilt pages init` | Generate reviewed Pages workflow and configuration; no deploy/push |
+| `branchquilt pages init --mode actions\|branch` | Record an explicit Pages backend; install a reviewed workflow or initialize a protected BranchQuilt deployment branch |
+| `branchquilt publish [path]` | Build and publish through the configured Pages backend; never modify the source worktree/index |
 
 Support `--config`, repeatable `--branch`, `--output`, `--format single|directory`, `--github auto|required|off`, `--github-repo`, `--github-host`, repeatable `--pr`, `--pr-state`, `--since`, `--max-prs`, `--ownership blame|off`, `--exclude`, `--history-days`, `--max-commits`, `--max-events-per-pr`, `--checkpoint <sha>`, `--reviewer <login>`, `--non-interactive`, `--lock-timeout <seconds>`, `--timeout <seconds>`, `--report <path>`, `--cache-dir <path>`, `--no-cache`, `--refresh`, `--strict`, and `--json`. `--json` emits structured progress/result records without secret values. Help documents what each cap excludes. `--since` filters PR updates; `--history-days` bounds commit activity. `--checkpoint` sets an explicit net-diff baseline and requires a resolvable commit; a time brush selects observed events rather than pretending to be a commit baseline. `--reviewer` preselects a public GitHub login without embedding authentication.
 
-Precedence: CLI → explicit/config-discovered JSON → built-in defaults. Authentication environment variables are separate from serializable config. Reject unknown keys and executable JavaScript configuration. Resolve relative paths from the repository root. Reject output at the root or inside `.git`; refuse overwrite of unrelated files. Use a generator-owned manifest and atomic staging/rename. A failed build preserves the last good artifact.
+Precedence: CLI → explicit/config-discovered JSON → built-in defaults. Authentication environment variables are separate from serializable config. Reject unknown keys and executable JavaScript configuration. Resolve relative paths from the repository root. Explicit output paths cannot be the repository root or arbitrary locations inside `.git`; `view` and `publish` may use only their fixed, tool-owned directory beneath the per-worktree Git directory. Refuse overwrite of unrelated files. Use a generator-owned manifest and atomic staging/rename. A failed build preserves the last good artifact.
 
 Exit codes: `0` successful artifact, including explicitly reported nonfatal omissions; `1` build/internal failure; `2` configuration/usage failure; `3` required remote/auth failure; `4` incomplete analysis under `--strict`; `5` another run holds the lock past its timeout; `6` overall timeout. Cancellation exits nonzero with a structured cancelled result. Strict mode fails on selected requested capabilities that are incomplete, not intentional exclusions or documented unsupported-language fallbacks. Print a final summary with analyzed/skipped files, parsed symbols, attribution completeness, PR mapping quality, truncation, artifact size, and paths.
 
@@ -377,7 +379,7 @@ Exit codes: `0` successful artifact, including explicitly reported nonfatal omis
   "branches": [],
   "maxSnapshots": 50,
   "maxBranches": 5,
-  "output": { "directory": "branchquilt", "format": "single" },
+  "output": { "directory": ".branchquilt/site", "format": "single" },
   "exclude": ["**/node_modules/**", "**/vendor/**", "**/dist/**", "**/*.min.js"],
   "parsing": { "maxFileBytes": 2097152, "timeoutMs": 2000, "workers": 4 },
   "ownership": { "mode": "blame", "useMailmap": true, "identityMappings": [] },
@@ -386,6 +388,7 @@ Exit codes: `0` successful artifact, including explicitly reported nonfatal omis
   "refresh": { "timeoutSeconds": 900, "lockTimeoutSeconds": 0, "staleAfterMinutes": 90 },
   "cache": { "enabled": true, "maxMiB": 1024, "githubTtlMinutes": 15 },
   "viewer": { "defaultColorMode": "activity", "defaultSizeMetric": "bytes" },
+  "pages": { "mode": "actions", "branch": "gh-pages", "folder": "/" },
   "privacy": { "profile": "standard", "includeSource": false, "includeEmails": false }
 }
 ```
@@ -396,7 +399,7 @@ Exit codes: `0` successful artifact, including explicitly reported nonfatal omis
 # Add to an existing repository; commit the resulting lockfile for reproducibility.
 pnpm add -D branchquilt
 pnpm exec branchquilt init
-pnpm exec branchquilt build .
+pnpm exec branchquilt view .
 
 # One-time invocation; use a tested exact release in repeatable automation.
 pnpm dlx branchquilt build /path/to/existing-repository
@@ -411,10 +414,10 @@ pnpm exec branchquilt build . --pr 42 --pr 57 --github required
 # Generate a private local-only report with no remote requests.
 pnpm exec branchquilt build . --github off --output branchquilt-local
 
-# Directory artifact for Pages, or an optional local server.
-pnpm exec branchquilt build . --format directory --output docs/branchquilt
-pnpm exec branchquilt serve docs/branchquilt
-pnpm exec branchquilt pages init
+# Choose one Pages backend once, then publish with one command.
+pnpm exec branchquilt pages init --mode actions
+# Or: pnpm exec branchquilt pages init --mode branch --branch gh-pages
+pnpm exec branchquilt publish
 ```
 
 The package must work through pnpm's package execution model, including installed binaries and one-time execution; see the [pnpm CLI documentation](https://pnpm.io/id/11.x/pnpm-cli).
@@ -590,7 +593,9 @@ This is a trigger fragment, not a full workflow. Integrate the complete build/de
 ### Pages build and deployment
 
 
-Generate a workflow through `pages init` and include an annotated template in documentation. Do not assume a default branch named `main`: detect it or require a configured deployment branch. Use GitHub Actions as the preferred Pages publishing source and explain the repository setting the maintainer must enable.
+Require `pages init --mode actions|branch`; never infer a fallback publication method. Do not assume a default branch named `main`: detect it or require a configured source/deployment branch. Both modes generate outside the source worktree and publish only after validation.
+
+**Actions mode.** Generate a reviewed workflow and configuration. Explain the repository setting the maintainer must enable. `publish` dispatches that workflow through the host API, reports its run URL, optionally waits, and prints the resulting Pages URL.
 
 The build job checks out sufficient history for the requested analysis, sets up pinned Node/pnpm versions, installs with a frozen lockfile, builds `branchquilt` into a dedicated output directory, runs an artifact privacy/secret check, configures Pages, and uploads only that directory. If exact PR refs are required, fetch only the selected refs explicitly. Avoid persisting checkout credentials. Use the repository's lockfile-installed CLI rather than fetching an unpinned package on every run.
 
@@ -598,7 +603,9 @@ The deploy job depends on the successful build, uses the `github-pages` environm
 
 Support configured default-branch pushes, manual dispatch, and scheduled full refresh. The scheduled template runs the explicit refresh pipeline for remote refs, PR metadata, reviews, and timeline observations, rather than rebuilding stale local HEAD. Install the tool from trusted pinned dependencies before analyzing target refs. Never deploy untrusted PR builds or use `pull_request_target` to execute fork code with secrets. A PR-validation workflow can test the tool without publishing. Pin third-party action revisions to reviewed immutable SHAs with human-readable version comments; resolve actual SHAs during implementation rather than inventing them in this plan.
 
-Also document the simpler branch-folder method: generate to `docs/branchquilt`, have the maintainer commit it, and configure Pages to publish the supported branch/folder. The tool itself does not commit. Existing sites must not be overwritten; document subdirectory placement and conflicts with site generators. GitHub repository visibility alone is not an adequate publication decision: review the export and the site's actual access settings before enabling deployment.
+**Branch mode.** Support enterprises where Actions is restricted. Generate a standalone report in the fixed tool-owned Git directory, then create a minimal deployment tree containing `index.html`, `.nojekyll`, and an ownership marker. Publish it to a dedicated configurable branch, defaulting to `gh-pages`, without checkout, index changes, or source-branch files. Refuse an existing branch without the ownership marker. Replace a managed deployment only with an exact observed-tip lease; concurrent movement fails instead of being overwritten. Keep the generated branch history bounded. Instruct the maintainer to select **Deploy from a branch**, that branch, and `/(root)`; configure it through the host API only when supported and authorized. External schedulers can invoke the same `publish` command with ordinary Git push credentials.
+
+Do not share a BranchQuilt-managed deployment branch with another site. Existing sites must not be overwritten. GitHub repository visibility alone is not an adequate publication decision: review the export and the site's actual access settings before enabling deployment.
 
 ## 11. Suggested repository structure
 
