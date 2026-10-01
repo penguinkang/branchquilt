@@ -7,6 +7,7 @@ export function git(root:string,args:string[]):Buffer {
   catch{throw new Error(`Git ${args[0]} failed. Check repository, refs, available history, and Git installation.`);}
 }
 export const text=(root:string,args:string[])=>git(root,args).toString('utf8').trim();
+const optionalText=(root:string,args:string[])=>{try{return text(root,args);}catch{return '';}};
 export const repositoryRoot=(path:string)=>text(path,['rev-parse','--show-toplevel']);
 function resolveRef(root:string,ref:string):string{
   if(ref.startsWith('-')||/[\x00-\x20]/.test(ref))throw new Error('Invalid branch reference');
@@ -26,10 +27,21 @@ export function collect(root:string,config:Config,outputRelative:string):Atlas{
   if(text(root,['status','--porcelain']).length)diagnostics.push('Working tree changes and untracked files are excluded.');
   if(text(root,['rev-parse','--is-shallow-repository'])==='true')diagnostics.push('Shallow repository: history and change scopes may be incomplete.');
   const atlas:Atlas={schemaVersion:'0.1.0',repository:basename(root),generatedAt:new Date().toISOString(),snapshots:[],refs:[],diagnostics,excluded:0,comparisons:{}};
-  const refs=text(root,['for-each-ref','--format=%(refname:short)%09%(objectname)','refs/heads','refs/remotes']).split('\n').filter(Boolean);
+  const refRows=text(root,['for-each-ref','--format=%(refname:short)%09%(objectname)%09%(committerdate:unix)%09%(symref:short)','refs/heads','refs/remotes']).split('\n').filter(Boolean).map(line=>{const [ref,oid,date,symref]=line.split('\t');return{ref,oid,date:Number(date)||0,symref};}).filter(item=>!item.symref&&!item.ref.endsWith('/HEAD'));
+  const refs=refRows.map(({ref,oid})=>`${ref}\t${oid}`);
   if(refs.length>500)diagnostics.push('Branch catalog limited to 500 refs.');
   atlas.refs=refs.slice(0,500).map(x=>{const [ref,oid]=x.split('\t');return{ref,oid};});
-  const resolved=[...new Set(config.branches)].map(ref=>({ref,oid:resolveRef(root,ref)}));
+  let selected=[...new Set(config.branches)];
+  if(!selected.length){
+    const current=optionalText(root,['symbolic-ref','--quiet','--short','HEAD']);
+    const remoteDefault=optionalText(root,['symbolic-ref','--quiet','--short','refs/remotes/origin/HEAD']);
+    const priority=(item:typeof refRows[number])=>item.ref===current?0:item.ref==='main'||item.ref==='master'?1:item.ref===remoteDefault?2:item.ref.startsWith('origin/')&&(item.ref==='origin/main'||item.ref==='origin/master')?3:item.ref.includes('/')?5:4;
+    selected=refRows.sort((a,b)=>priority(a)-priority(b)||b.date-a.date||a.ref.localeCompare(b.ref)).map(item=>item.ref);
+    if(!selected.length)selected=['HEAD'];
+    if(selected.length>config.maxSnapshots)diagnostics.push(`Snapshot analysis limited to ${config.maxSnapshots} of ${selected.length} available branches; raise maxSnapshots or use repeated --branch options.`);
+    selected=selected.slice(0,config.maxSnapshots);
+  }
+  const resolved=selected.map(ref=>({ref,oid:resolveRef(root,ref)}));
   for(const {ref,oid} of resolved){
     const files:Entry[]=[];
     for(const record of git(root,['ls-tree','-r','-l','-z',oid]).toString('utf8').split('\0').filter(Boolean)){

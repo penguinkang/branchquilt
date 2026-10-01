@@ -3,7 +3,7 @@
 ## Phase 1 — Local executable preview (implemented)
 
 - Bundled pnpm-compatible CLI: build, init, doctor.
-- Validated JSON configuration; committed tree reads, up to five snapshots.
+- Validated JSON configuration; committed tree reads, automatic branch discovery bounded at 50 snapshots.
 - Files, directories, symlinks, submodules, configurable exclusions.
 - Standalone offline HTML, safe metadata rendering, guarded output replacement.
 - Two-pane shared-slot comparison, mode/content differences, detected rename list.

@@ -13,6 +13,7 @@ try{
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});
  await page.goto(pathToFileURL(join(root,'branchquilt/index.html')).href);
  assert(await page.locator('#files-panel').isHidden());assert(await page.locator('#activity-panel').isHidden());
+ assert(await page.locator('#info-panel').isVisible());await page.getByRole('button',{name:'Close legend'}).click();assert(await page.locator('#info-panel').isHidden());
  assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight));
  await page.getByRole('button',{name:'src/',exact:true}).click({modifiers:[process.platform==='darwin'?'Meta':'Control']});await page.waitForSelector('#inspector:not([hidden])');
  assert((await page.locator('#details').textContent())!.includes('directory'));

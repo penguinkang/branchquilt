@@ -23,6 +23,9 @@ test('reads immutable refs, exclusions, hostile paths and bounded history withou
  const html=renderHtml(a,resolve('dist'));assert(!html.includes('alex-private@example.invalid'));assert(!html.includes('SECRET_CANARY'));assert(!html.includes('</script><script>alert'));
  }finally{rmSync(root,{recursive:true,force:true});}
 });
+test('automatic branch selection starts with the working branch and includes main',()=>{
+ const {root}=fixture();try{const atlas=collect(root,configSchema.parse({history:{days:3650,maxCommits:10}}),'branchquilt');assert.deepEqual(atlas.snapshots.map(snapshot=>snapshot.ref),['team/integration','main']);}finally{rmSync(root,{recursive:true,force:true});}
+});
 test('union capacity conserves bytes and mode changes are visible',()=>{
  const file={path:'src/a',oid:'x',mode:'100644',bytes:100,kind:'file' as const};
  const union=unionFiles([file],[{...file,bytes:200},{...file,path:'src/b',bytes:50}]);
@@ -44,4 +47,4 @@ test('CLI generates a real standalone artifact and rejects invalid required capa
  assert.throws(()=>execFileSync(process.execPath,[...args,'--github','required'],{stdio:'pipe'}));
  }finally{rmSync(root,{recursive:true,force:true});}
 });
-test('config rejects unknown keys and invalid limits',()=>{assert.throws(()=>configSchema.parse({secretToken:'no'}));assert.throws(()=>configSchema.parse({history:{maxCommits:0}}));});
+test('config rejects unknown keys and invalid limits',()=>{assert.throws(()=>configSchema.parse({secretToken:'no'}));assert.throws(()=>configSchema.parse({history:{maxCommits:0}}));assert.throws(()=>configSchema.parse({maxSnapshots:51}));});

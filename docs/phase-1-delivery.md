@@ -4,7 +4,7 @@ Implemented in the BranchQuilt repository on September 29, 2026. Version: `0.1.0
 
 ## Available now
 
-The packaged CLI builds a standalone HTML report from one to five committed Git refs. It provides directory/file treemaps, paired branch comparison with shared positions and honest size labels, detected rename listings, path search, explicit folder drilldown, toggleable detail inspection, recent contributors, and a bounded commit activity list with file-level change scope. It reads symlink metadata without following targets and excludes common credential/dependency paths.
+The packaged CLI builds a standalone HTML report from committed Git refs. Automatic discovery prioritizes the checked-out branch and main/master and is bounded at 50 snapshots; repeated `--branch` options select an exact set. It provides directory/file treemaps, paired branch comparison with shared positions and honest size labels, detected rename listings, path search, explicit folder drilldown, toggleable detail inspection, recent contributors, and a bounded commit activity list with file-level change scope. It reads symlink metadata without following targets and excludes common credential/dependency paths.
 
 Output generation escapes untrusted metadata and uses a script-hash CSP with no network access. Dedicated output directories and ownership markers prevent accidental overwriting of unrelated HTML. A basic repository build lock prevents simultaneous writers. Interrupted-lock recovery is not automated yet.
 

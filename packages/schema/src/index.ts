@@ -1,7 +1,8 @@
 import { z } from 'zod';
 export const configSchema = z.object({
   version: z.literal(1).default(1),
-  branches: z.array(z.string().min(1)).min(1).max(5).default(['HEAD']),
+  branches: z.array(z.string().min(1)).max(50).default([]),
+  maxSnapshots: z.number().int().min(1).max(50).default(50),
   output: z.object({ directory: z.string().min(1).default('branchquilt'), format: z.literal('single').default('single') }).strict().default({directory:'branchquilt',format:'single'}),
   exclude: z.array(z.string()).default([]),
   history: z.object({ days: z.number().int().min(1).max(3650).default(14), maxCommits: z.number().int().min(1).max(2000).default(100) }).strict().default({days:14,maxCommits:100}),

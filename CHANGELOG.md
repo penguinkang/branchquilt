@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0-alpha.7
+
+- Automatically embed available local and remote-tracking branches, up to a configurable 50-snapshot bound; prioritize the checked-out branch and main/master.
+- Keep explicit repeated `--branch` selection and add `--max-branches` for a smaller automatic set. Catalog-only refs remain visible as disabled selector entries.
+- Make single-branch and branch comparison controls persistent and clearly labeled.
+- Open Legend & info on first load with an **×** close button.
+
 ## 0.4.0-alpha.6
 
 - Label contributor colors directly on sufficiently large treemap regions and explain mixed, unknown, activity, and ownership colors in the hover tooltip.

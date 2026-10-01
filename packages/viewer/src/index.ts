@@ -46,13 +46,15 @@ function updateFreshness(){
 }
 updateFreshness();setInterval(updateFreshness,60000);
 $('#notice').textContent=data.diagnostics.join(' ');
-$('#catalog-summary').textContent=`${data.refs.length} refs inventoried · ${data.snapshots.length} snapshots embedded`;
+$('#catalog-summary').textContent=`${data.snapshots.length} branches embedded · ${data.refs.length} available refs inventoried${data.snapshots.length<data.refs.length?' · catalog-only branches are disabled in the selectors':''}`;
 const branch=$('#branch') as HTMLSelectElement,other=$('#compare') as HTMLSelectElement;
 data.snapshots.forEach((s,i)=>{branch.add(new Option(s.ref,String(i)));other.add(new Option(s.ref,String(i)));});
+const embedded=new Set(data.snapshots.map(snapshot=>snapshot.ref));for(const ref of data.refs)if(!embedded.has(ref.ref)){const a=new Option(`${ref.ref} · catalog only`,'catalog:'+ref.ref),b=new Option(`${ref.ref} · catalog only`,'catalog:'+ref.ref);a.disabled=true;b.disabled=true;branch.add(a);other.add(b);}
 branch.onchange=()=>{current=Number(branch.value);if(compare===current){compare=-1;other.value='-1';}scope='';render();};
 other.onchange=()=>{compare=Number(other.value);if(compare===current){compare=-1;other.value='-1';}scope='';render();};
 ($('#search') as HTMLInputElement).oninput=e=>{query=(e.target as HTMLInputElement).value.toLowerCase();togglePanel('files',!!query);render();};
 $('#close-inspector').onclick=()=>closeInspector();
+$('#close-info').onclick=()=>togglePanel('info',false);
 const panels=['search','files','activity','info','reviews'];
 function togglePanel(name:string,force?:boolean){
   const panel=$(`#${name}-panel`),open=force??panel.hidden;

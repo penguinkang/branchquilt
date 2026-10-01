@@ -20,6 +20,8 @@ pnpm dlx branchquilt@alpha build .
 
 Open **`branchquilt/index.html`** in your browser. No server required.
 
+By default, BranchQuilt embeds the checked-out branch, main/master, and the other locally available branch or remote-tracking refs, up to 50 snapshots. Use `--max-branches 10` to lower that bound, or repeat `--branch` to build an exact set.
+
 To keep the tool in your project:
 
 ```sh
@@ -48,6 +50,9 @@ Run these inside your target repository:
 ```sh
 # Compare two existing branches
 npx branchquilt@alpha build . --branch main --branch feature/my-work
+
+# Automatically include at most 20 available branches
+npx branchquilt@alpha build . --max-branches 20
 
 # Include GitHub PRs and reviews (repository inferred from origin)
 npx branchquilt@alpha build . --github required

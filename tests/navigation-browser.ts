@@ -4,7 +4,7 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const browser=await chromium.launch();
 try{
- const page=await browser.newPage({viewport:{width:1440,height:960}});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(pathToFileURL(resolve('work/demo/index.html')).href);
+ const page=await browser.newPage({viewport:{width:1440,height:960}});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(pathToFileURL(resolve('work/demo/index.html')).href);assert(await page.locator('#info-panel').isVisible());await page.getByRole('button',{name:'Close legend'}).click();
  const contains=async(parent:string,child:string)=>{const a=await page.locator(`.tile[data-path="${parent}"]`).boundingBox(),b=await page.locator(`.tile[data-path="${child}"]`).boundingBox();assert(a&&b);assert(b.x>=a.x&&b.y>=a.y&&b.x+b.width<=a.x+a.width+1&&b.y+b.height<=a.y+a.height+1);};
  const src=page.locator('.tile[data-path="src"]');const srcBox=await src.boundingBox();assert(srcBox);const hoverX=srcBox.x+Math.min(400,srcBox.width/2),hoverY=srcBox.y+Math.min(200,srcBox.height/2);await page.mouse.move(hoverX,hoverY);const tipBox=await page.locator('#object-tooltip').boundingBox();assert(tipBox&&Math.abs(tipBox.x-hoverX)<tipBox.width+30);assert((await page.locator('#object-tooltip').innerText()).includes('activity'));await page.waitForFunction(()=>getComputedStyle(document.querySelector('.tile[data-path="src"] .open')!).opacity==='1');
  await page.getByRole('button',{name:'src/',exact:true}).click();assert((await page.locator('#breadcrumbs').innerText()).includes('src'));assert(await page.getByRole('button',{name:'README.md',exact:true}).isVisible());await contains('src','src/auth.ts');

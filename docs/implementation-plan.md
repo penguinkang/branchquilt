@@ -123,7 +123,7 @@ Publish one user-facing `branchquilt` package first. Internal workspace packages
 ### 4.1 Local Git
 
 1. Discover repository root and Git/common directories; support worktrees, detached HEAD, and shallow clones.
-2. Resolve explicitly selected refs and capture SHAs. Support local and already-fetched remote-tracking refs. Default limit: five snapshots, configurable.
+2. Resolve explicitly selected refs and capture SHAs. Support local and already-fetched remote-tracking refs. Automatically prioritize the checked-out branch and main/master, then include other available refs up to a configurable 50-snapshot bound.
 3. Enumerate tracked entries with NUL-delimited Git output and read blobs in batches. Never parse filenames by whitespace or newline.
 4. Apply path exclusions before parsing/blame. Always exclude the selected output/cache paths, `.git`, dependency/vendor/build directories, and known credential files. Make additional excludes configurable. Record counts and reasons; do not export excluded sensitive paths by default.
 5. Treat symlinks as entries, never follow their targets. Treat submodules as opaque commit references. Detect Git LFS pointers without fetching their content. Binary or unsupported files remain nodes with status metadata.
@@ -374,7 +374,8 @@ Exit codes: `0` successful artifact, including explicitly reported nonfatal omis
 {
   "$schema": "./node_modules/branchquilt/config.schema.json",
   "version": 1,
-  "branches": ["HEAD"],
+  "branches": [],
+  "maxSnapshots": 50,
   "maxBranches": 5,
   "output": { "directory": "branchquilt", "format": "single" },
   "exclude": ["**/node_modules/**", "**/vendor/**", "**/dist/**", "**/*.min.js"],
@@ -422,7 +423,7 @@ The package must work through pnpm's package execution model, including installe
 
 ### Shared-branch workspace and contextual side panel
 
-The primary screen is a viewport-filling map with compact floating branch controls and breadcrumbs. The map extends behind top/bottom controls without reserved control bands. On pointer devices, edge controls reveal on hover or keyboard focus and become fully opaque; touch controls remain visible. Search, the branch/review queue, file lists, timeline/activity, legends, and the right-side inspector open as dismissible overlays. Keep these closed initially. Avoid permanent section cards, explanatory text blocks, and tables around the map; disclose detail on demand. Keep the selected branch, time range/checkpoint, data freshness, and active color/scope legends visible. Branch comparison is an explicit secondary mode. PRs are selectable objects in the review queue and timeline, not artificial children of source files; the canonical code hierarchy remains unchanged.
+The primary screen is a viewport-filling map with compact persistent branch/compare controls and floating breadcrumbs. The map extends behind top/bottom controls without reserved control bands. On pointer devices, secondary edge controls reveal on hover or keyboard focus and become fully opaque; touch controls remain visible. Search, the branch/review queue, file lists, timeline/activity, and the right-side inspector open as dismissible overlays. Open the legend on first load with an explicit close control. Avoid permanent section cards, explanatory text blocks, and tables around the map; disclose detail on demand. Keep the selected branch, data freshness, and active scale visible. Branch comparison is an explicit secondary mode. PRs are selectable objects in the review queue and timeline, not artificial children of source files; the canonical code hierarchy remains unchanged.
 
 **Selection contract:** click/tap/Enter on a function, file, directory, branch, PR, commit, or event selects it and opens its inspector. Selecting a different object replaces the panel content. Selecting the same object toggles the panel closed/open while retaining the selection highlight. The Close button and Escape close it and restore focus to the trigger; Back restores the prior selection without changing the analysis window. Use a separate chevron or “Open scope” action for expanding tree nodes or drilling into the treemap so a single click never both zooms and toggles the inspector. Branch/PR inspector “Focus branch” and “Show scope” actions explicitly change the workspace context.
 
